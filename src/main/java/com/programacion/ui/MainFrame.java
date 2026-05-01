@@ -109,36 +109,37 @@ public class MainFrame extends JFrame {
         add(toolBar, BorderLayout.NORTH);
     }
 
-    // --- 2. PANEL LATERAL (Filtros escalables) ---
+    // --- 2. PANEL LATERAL (Filtros categorizados) ---
     private void buildSidebar() {
         // Usamos un panel con disposición vertical (BoxLayout)
         JPanel filterPanel = new JPanel();
         filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
         filterPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel titleLabel = new JLabel("Filtros Disponibles");
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 14f));
+        JLabel titleLabel = new JLabel("Herramientas");
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         filterPanel.add(titleLabel);
         filterPanel.add(Box.createRigidArea(new Dimension(0, 15)));
 
-        // Aquí agregas todos los filtros que vayas creando en el futuro
-        List<ImageFilter> availableFilters = new ArrayList<>();
-        availableFilters.add(new GrayscaleFilter());
-        availableFilters.add(new NegativeFilter());
-        // availableFilters.add(new SepiaFilter()); // <- Fácil de escalar
+        // Categoría 1: Efectos Básicos
+        List<ImageFilter> basicEffects = new ArrayList<>();
+        basicEffects.add(new GrayscaleFilter());
+        basicEffects.add(new NegativeFilter());
+        filterPanel.add(createCategoryPanel("Efectos Básicos", basicEffects));
+        filterPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        // Generar botones dinámicamente según los filtros que existan
-        for (ImageFilter filter : availableFilters) {
-            JButton btnFilter = new JButton(filter.getName());
-            btnFilter.setAlignmentX(Component.CENTER_ALIGNMENT);
-            btnFilter.setMaximumSize(new Dimension(200, 35)); // Botones uniformes
+        // Categoría 2: Manejo de Bits
+        List<ImageFilter> bitManipulation = new ArrayList<>();
+        // bitManipulation.add(new RecorteBitsFilter()); // Para el futuro
+        filterPanel.add(createCategoryPanel("Manejo de Bits", bitManipulation));
+        filterPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
-            btnFilter.addActionListener(e -> applyFilter(filter));
-
-            filterPanel.add(btnFilter);
-            filterPanel.add(Box.createRigidArea(new Dimension(0, 10))); // Espaciado
-        }
+        // Categoría 3: Ajustes Manuales (HSV)
+        List<ImageFilter> manualAdjustments = new ArrayList<>();
+        // manualAdjustments.add(new ModificacionHSVFilter()); // Para el futuro
+        filterPanel.add(createCategoryPanel("Ajustes HSV", manualAdjustments));
+        filterPanel.add(Box.createRigidArea(new Dimension(0, 10)));
 
         // Botón de reseteo
         filterPanel.add(Box.createVerticalGlue()); // Empuja el botón al fondo
@@ -148,10 +149,54 @@ public class MainFrame extends JFrame {
         btnSidebarReset.addActionListener(e -> resetImage());
         filterPanel.add(btnSidebarReset);
 
-        // Envolvemos el panel en un ScrollPane por si llegamos a tener 50 filtros
+        // Envolvemos el panel en un ScrollPane por si crecen mucho las categorías
         JScrollPane scrollSidebar = new JScrollPane(filterPanel);
-        scrollSidebar.setPreferredSize(new Dimension(220, 0));
+        scrollSidebar.getVerticalScrollBar().setUnitIncrement(16); // Scroll más suave
+        scrollSidebar.setPreferredSize(new Dimension(240, 0));
         add(scrollSidebar, BorderLayout.WEST);
+    }
+
+    private JPanel createCategoryPanel(String title, List<ImageFilter> filters) {
+        JPanel categoryPanel = new JPanel();
+        categoryPanel.setLayout(new BoxLayout(categoryPanel, BoxLayout.Y_AXIS));
+
+        // Obtener color del borde según el tema de FlatLaf
+        Color borderColor = UIManager.getColor("Component.borderColor");
+        if (borderColor == null) borderColor = Color.GRAY;
+
+        // Borde con título para separar visualmente
+        categoryPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(borderColor, 1, true),
+                title,
+                javax.swing.border.TitledBorder.LEFT,
+                javax.swing.border.TitledBorder.TOP,
+                new Font("Dialog", Font.BOLD, 12)));
+
+        categoryPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        categoryPanel.setMaximumSize(new Dimension(220, Integer.MAX_VALUE));
+
+        if (filters.isEmpty()) {
+            JLabel emptyLabel = new JLabel("Próximamente...");
+            emptyLabel.setFont(emptyLabel.getFont().deriveFont(Font.ITALIC, 11f));
+            emptyLabel.setForeground(Color.GRAY);
+            emptyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            categoryPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+            categoryPanel.add(emptyLabel);
+            categoryPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        } else {
+            categoryPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+            for (ImageFilter filter : filters) {
+                JButton btnFilter = new JButton(filter.getName());
+                btnFilter.setAlignmentX(Component.CENTER_ALIGNMENT);
+                btnFilter.setMaximumSize(new Dimension(190, 30));
+                btnFilter.addActionListener(e -> applyFilter(filter));
+                categoryPanel.add(btnFilter);
+                categoryPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+            }
+            categoryPanel.add(Box.createRigidArea(new Dimension(0, 2))); // Espaciado inferior extra
+        }
+
+        return categoryPanel;
     }
 
     // --- 3. ÁREA CENTRAL (Vista Doble: Arriba / Abajo) ---
