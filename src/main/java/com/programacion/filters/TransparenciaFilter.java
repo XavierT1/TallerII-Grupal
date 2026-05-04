@@ -3,7 +3,13 @@ package com.programacion.filters;
 import com.programacion.core.ImageFilter;
 import java.awt.image.BufferedImage;
 
-public class FrostedGlassFilter implements ImageFilter {
+public class TransparenciaFilter implements ImageFilter {
+
+    private float factorT;
+
+    public TransparenciaFilter(float factorT) {
+        this.factorT = factorT;
+    }
 
     @Override
     public BufferedImage apply(BufferedImage originalImage) {
@@ -12,29 +18,23 @@ public class FrostedGlassFilter implements ImageFilter {
 
         int ancho = originalImage.getWidth();
         int alto = originalImage.getHeight();
-
-        // buffer para la imagen resultante
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
 
         for (int y = 0; y < alto; y++) {
             for (int x = 0; x < ancho; x++) {
-
                 int pixel = originalImage.getRGB(x, y);
 
-                // Extracción de canales
+                int a = (pixel >> 24) & 0xFF;
                 int r = (pixel >> 16) & 0xFF;
                 int g = (pixel >> 8) & 0xFF;
                 int b = (pixel >> 0) & 0xFF;
 
-                // Cálculo de brillo
-                int brillo = (r + g + b) / 3;
+                if (a == 0)
+                    a = 255;
 
-                // Cálculo del canal Alpha
-                int a = (int) (50 + (brillo * (205.0 / 255.0)));
+                a = (int) (a * factorT);
 
-                // Reconstrucción del píxel
-                int pixelNuevo = (a << 24) | (r << 16) | (g << 8) | (b << 0);
-
+                int pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
                 result.setRGB(x, y, pixelNuevo);
             }
         }
@@ -43,6 +43,6 @@ public class FrostedGlassFilter implements ImageFilter {
 
     @Override
     public String getName() {
-        return "Vidrio Esmerilado";
+        return "Transparencia";
     }
 }

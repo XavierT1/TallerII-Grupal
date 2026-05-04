@@ -8,12 +8,14 @@ import com.programacion.filters.NegativeFilter;
 import com.programacion.filters.FrostedGlassFilter;
 import com.programacion.filters.ColorChannelFilter;
 import com.programacion.filters.CircularFadeFilter;
+import com.programacion.filters.BitMaskFilter;
 import com.programacion.filters.BlackAndWhiteFilter;
 import com.programacion.filters.RetroEffectFilter;
 import com.programacion.filters.RetroTwoFilter;
 import com.programacion.filters.RadialGradientFilter;
 import com.programacion.filters.StretchingFilter;
 import com.programacion.filters.ConvolutionFilter;
+import com.programacion.filters.TransparenciaFilter;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -33,6 +35,13 @@ public class MainFrame extends JFrame {
     private JLabel labelFiltered = new JLabel("Sin filtro", SwingConstants.CENTER);
 
     private boolean isDarkMode = true;
+
+    // Variables para la herramienta de transparencia
+    private int ultimoValorTransparencia = 50;
+    private JDialog ventanaTransparencia = null;
+
+    private int ultimoValorMascara = 4;
+    private JDialog ventanaMascara = null;
 
     // Referencias a botones para iconos
     private JButton btnCargar, btnGuardar, btnTema;
@@ -164,16 +173,40 @@ public class MainFrame extends JFrame {
             JButton btn = new JButton(f.getName());
             btn.setAlignmentX(Component.CENTER_ALIGNMENT);
             btn.setMaximumSize(new Dimension(200, 30));
-            btn.addActionListener(e -> aplicarFiltro(f));
+
+            // Acción: Primero limpia ventanas abiertas y luego aplica el filtro
+            btn.addActionListener(e -> {
+                cerrarVentanasFlotantes();
+                aplicarFiltro(f);
+            });
+
             sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
             sidebar.add(btn);
         }
+        // 1. TRANSPARENCIA AJUSTABLE
+        JButton btnTransparencia = new JButton("Transparencia Ajustable");
+        btnTransparencia.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnTransparencia.setMaximumSize(new Dimension(200, 30));
+        btnTransparencia.addActionListener(e -> accionTransparenciaAjustable());
 
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+        sidebar.add(btnTransparencia);
+
+        // 2. MASCARAS AJUSTABLES (AHORA SÍ PEGADAS A TRANSPARENCIA)
+        JButton btnMascaras = new JButton("Máscaras Dinámicas");
+        btnMascaras.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnMascaras.setMaximumSize(new Dimension(200, 30));
+        btnMascaras.addActionListener(e -> accionMascaraBitsAdjustable());
+
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+        sidebar.add(btnMascaras);
+
+        // SEPARADOR GRANDE
         sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
         sidebar.add(new JSeparator());
         sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        // 2. Botón Especial: Comparativa de Bits
+        // 3. Botón Especial: Comparativa de Bits
         JButton btnComparar = new JButton("Comparativa de Bits");
         btnComparar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnComparar.setMaximumSize(new Dimension(200, 40));
@@ -442,20 +475,20 @@ public class MainFrame extends JFrame {
         int[] tipos = { 1, 2, 3, 4, 5 };
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1200));
-        
+
         for (int t : tipos) {
             RadialGradientFilter f = new RadialGradientFilter(t);
             BufferedImage imgResult = f.apply(originalImage);
-            
+
             JPanel item = new JPanel(new BorderLayout());
             JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
             JLabel infoLabel = new JLabel(f.getName(), SwingConstants.CENTER);
             infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-            
+
             item.add(imgLabel, BorderLayout.CENTER);
             item.add(infoLabel, BorderLayout.SOUTH);
             item.setBorder(BorderFactory.createEtchedBorder());
-            
+
             panelGrid.add(item);
         }
 
@@ -470,16 +503,17 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // Mostraremos: 2 bits RGB, 2 bits HSV, 4 bits RGB, 4 bits HSV, 8 bits RGB, 8 bits HSV
+        // Mostraremos: 2 bits RGB, 2 bits HSV, 4 bits RGB, 4 bits HSV, 8 bits RGB, 8
+        // bits HSV
         int[] bitsArr = { 2, 4, 8 };
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1500));
-        
+
         for (int b : bitsArr) {
             // Variante RGB
             StretchingFilter fRGB = new StretchingFilter(b, 1);
             BufferedImage imgRGB = fRGB.apply(originalImage);
-            
+
             JPanel itemRGB = new JPanel(new BorderLayout());
             itemRGB.add(new JLabel(prepararImagenParaLabel(imgRGB, true)), BorderLayout.CENTER);
             itemRGB.add(new JLabel(fRGB.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
@@ -489,7 +523,7 @@ public class MainFrame extends JFrame {
             // Variante HSV
             StretchingFilter fHSV = new StretchingFilter(b, 2);
             BufferedImage imgHSV = fHSV.apply(originalImage);
-            
+
             JPanel itemHSV = new JPanel(new BorderLayout());
             itemHSV.add(new JLabel(prepararImagenParaLabel(imgHSV, true)), BorderLayout.CENTER);
             itemHSV.add(new JLabel(fHSV.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
@@ -509,20 +543,20 @@ public class MainFrame extends JFrame {
         }
 
         ImageFilter[] convs = {
-            ConvolutionFilter.Enfoque(),
-            ConvolutionFilter.Desenfoque(),
-            ConvolutionFilter.DesenfoquePesado(),
-            ConvolutionFilter.Bordes(),
-            ConvolutionFilter.Aclarar(),
-            ConvolutionFilter.Oscurecer()
+                ConvolutionFilter.Enfoque(),
+                ConvolutionFilter.Desenfoque(),
+                ConvolutionFilter.DesenfoquePesado(),
+                ConvolutionFilter.Bordes(),
+                ConvolutionFilter.Aclarar(),
+                ConvolutionFilter.Oscurecer()
         };
 
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1500));
-        
+
         for (ImageFilter f : convs) {
             BufferedImage imgResult = f.apply(originalImage);
-            
+
             JPanel item = new JPanel(new BorderLayout());
             item.add(new JLabel(prepararImagenParaLabel(imgResult, true)), BorderLayout.CENTER);
             item.add(new JLabel(f.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
@@ -588,5 +622,113 @@ public class MainFrame extends JFrame {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+    }
+
+    private void accionTransparenciaAjustable() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+
+        // 1. Si la ventanita ya está abierta, solo la traemos al frente y no hacemos
+        // nada más
+        if (ventanaTransparencia != null && ventanaTransparencia.isVisible()) {
+            ventanaTransparencia.toFront();
+            return;
+        }
+
+        // 2. Creamos un JDialog NO MODAL (el 'false' significa que puedes seguir
+        // tocando el programa)
+        ventanaTransparencia = new JDialog(this, "Nivel de Transparencia", false);
+        ventanaTransparencia.setLayout(new BorderLayout());
+
+        // 3. Creamos el slider e iniciamos con el último valor recordado
+        JSlider slider = new JSlider(0, 100, ultimoValorTransparencia);
+        slider.setMajorTickSpacing(25);
+        slider.setMinorTickSpacing(5);
+        slider.setPaintTicks(true);
+        slider.setPaintLabels(true);
+        // Le damos un poco de margen para que se vea bonito
+        slider.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // 4. ESTO HACE EL CAMBIO EN TIEMPO REAL AL MOVER LA BARRA
+        slider.addChangeListener(e -> {
+            ultimoValorTransparencia = slider.getValue(); // Guardamos el valor para la próxima
+            float factor = ultimoValorTransparencia / 100.0f;
+            aplicarFiltro(new TransparenciaFilter(factor));
+        });
+
+        // Aplicamos el filtro al abrir la ventana para que la imagen coincida con la
+        // barrita
+        aplicarFiltro(new TransparenciaFilter(ultimoValorTransparencia / 100.0f));
+
+        ventanaTransparencia.add(slider, BorderLayout.CENTER);
+        ventanaTransparencia.pack();
+
+        // 5. UBICACIÓN: Calculamos la esquina superior derecha del programa
+        // this.getX() y this.getWidth() nos dicen dónde está la ventana principal
+        int xPos = this.getX() + this.getWidth() - ventanaTransparencia.getWidth() - 30;
+        int yPos = this.getY() + 70; // Un poco más abajo de la barra de título
+        ventanaTransparencia.setLocation(xPos, yPos);
+
+        // Mostramos la herramienta
+        ventanaTransparencia.setVisible(true);
+    }
+
+    private void accionMascaraBitsAdjustable() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+
+        // 1. Si ya está abierta, la traemos al frente
+        if (ventanaMascara != null && ventanaMascara.isVisible()) {
+            ventanaMascara.toFront();
+            return;
+        }
+
+        // 2. Creamos la ventanita NO MODAL (el 'false' permite seguir usando el
+        // programa)
+        ventanaMascara = new JDialog(this, "Filtro de Máscaras", false);
+        ventanaMascara.setLayout(new BorderLayout());
+
+        // 3. Creamos el slider con el último valor recordado
+        JSlider slider = new JSlider(1, 8, ultimoValorMascara);
+        slider.setMajorTickSpacing(1);
+        slider.setPaintTicks(true);
+        slider.setPaintLabels(true);
+        slider.setBorder(BorderFactory.createTitledBorder("Bits por Canal (1-8)"));
+        slider.setPreferredSize(new Dimension(250, 70));
+
+        // 4. Acción en tiempo real al mover la barrita
+        slider.addChangeListener(e -> {
+            ultimoValorMascara = slider.getValue();
+            // 0.8f es tu factorT original, puedes cambiarlo si lo ves muy oscuro
+            aplicarFiltro(new BitMaskFilter(ultimoValorMascara, 0.8f));
+        });
+
+        // Aplicamos el filtro al abrir la ventana para que la imagen coincida
+        aplicarFiltro(new BitMaskFilter(ultimoValorMascara, 0.8f));
+
+        ventanaMascara.add(slider, BorderLayout.CENTER);
+        ventanaMascara.pack();
+
+        // 5. Ubicación: Esquina superior derecha (Un poco más abajo que la de
+        // transparencia
+        // para que no se encimen si abres las dos al mismo tiempo)
+        int xPos = this.getX() + this.getWidth() - ventanaMascara.getWidth() - 30;
+        int yPos = this.getY() + 150;
+        ventanaMascara.setLocation(xPos, yPos);
+
+        // Mostramos la herramienta
+        ventanaMascara.setVisible(true);
+    }
+
+    // --- MÉTODO PARA ESCONDER VENTANAS FLOTANTES ---
+    private void cerrarVentanasFlotantes() {
+        if (ventanaTransparencia != null)
+            ventanaTransparencia.setVisible(false);
+        if (ventanaMascara != null)
+            ventanaMascara.setVisible(false);
     }
 }
