@@ -3,73 +3,51 @@ package com.programacion.ui;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.programacion.core.ImageFilter;
-import com.programacion.filters.GrayscaleFilter;
-import com.programacion.filters.NegativeFilter;
-import com.programacion.filters.FrostedGlassFilter;
-import com.programacion.filters.ColorChannelFilter;
-import com.programacion.filters.CircularFadeFilter;
-import com.programacion.filters.BitMaskFilter;
-import com.programacion.filters.BlackAndWhiteFilter;
-import com.programacion.filters.RetroEffectFilter;
-import com.programacion.filters.RetroTwoFilter;
-import com.programacion.filters.RadialGradientFilter;
-import com.programacion.filters.StretchingFilter;
-import com.programacion.filters.ConvolutionFilter;
-import com.programacion.filters.TransparenciaFilter;
+import com.programacion.filters.*;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainFrame extends JFrame {
-    // 1. Atributos (Lo que la ventana "tiene")
     private BufferedImage originalImage;
     private BufferedImage filteredImage;
-
-    private JLabel labelOriginal = new JLabel("Sin imagen", SwingConstants.CENTER);
-    private JLabel labelFiltered = new JLabel("Sin filtro", SwingConstants.CENTER);
-
+    private JLabel labelMain = new JLabel("Sin imagen", SwingConstants.CENTER);
+    private JScrollPane scrollMain;
     private boolean isDarkMode = true;
 
-    // Variables para la herramienta de transparencia
     private int ultimoValorTransparencia = 50;
     private JDialog ventanaTransparencia = null;
-
     private int ultimoValorMascara = 4;
     private JDialog ventanaMascara = null;
 
-    // Referencias a botones para iconos
-    private JButton btnCargar, btnGuardar, btnTema;
+    private JButton btnCargar, btnGuardar, btnTema, btnVerOriginal, btnModoApilado;
 
     public MainFrame() {
-        // Configuración básica de la ventana
         setTitle("Editor de Imágenes Universitario");
-        setSize(1000, 700);
+        setSize(1100, 750);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
-
-        // Usamos BorderLayout: Arriba (Norte), Izquierda (Oeste) y Centro
         setLayout(new BorderLayout());
 
-        // Llamamos a los bloques principales de la interfaz
         initToolbar();
-        initMenu();
-        initSidebar();
         initWorkspace();
+        initRightSidebar();
 
-        // Ponemos los iconos iniciales
         updateIcons();
     }
 
-    // --- BLOQUE 0: BARRA DE HERRAMIENTAS (Con iconos) ---
     private void initToolbar() {
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
+        toolBar.setMargin(new Insets(5, 10, 5, 10));
 
         btnCargar = new JButton("Cargar");
         btnCargar.addActionListener(e -> accionCargar());
@@ -77,38 +55,67 @@ public class MainFrame extends JFrame {
         btnGuardar = new JButton("Guardar");
         btnGuardar.addActionListener(e -> accionGuardar());
 
+        btnVerOriginal = new JButton("Mantener para ver Original");
+        btnVerOriginal.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnVerOriginal.addMouseListener(new MouseAdapter() {
+            private Component previousView;
+            
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (originalImage != null) {
+                    previousView = scrollMain.getViewport().getView();
+                    labelMain.setIcon(prepararImagenParaLabel(originalImage, false));
+                    if (previousView != labelMain) {
+                        scrollMain.setViewportView(labelMain);
+                    }
+                }
+            }
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (filteredImage != null) {
+                    labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
+                    if (previousView != null && previousView != labelMain) {
+                        scrollMain.setViewportView(previousView);
+                    }
+                }
+            }
+        });
+
         btnTema = new JButton("Tema");
         btnTema.addActionListener(e -> accionCambiarTema());
+
+        btnModoApilado = new JButton("Modo Apilado (Avanzado)");
+        btnModoApilado.addActionListener(e -> abrirEditorAvanzado());
 
         toolBar.add(btnCargar);
         toolBar.addSeparator();
         toolBar.add(btnGuardar);
-        toolBar.add(Box.createHorizontalGlue()); // Empuja el tema a la derecha
+        toolBar.addSeparator();
+        toolBar.add(btnVerOriginal);
+        toolBar.addSeparator();
+        toolBar.add(btnModoApilado);
+        toolBar.add(Box.createHorizontalGlue());
         toolBar.add(btnTema);
 
         add(toolBar, BorderLayout.NORTH);
     }
 
-    // --- LÓGICA DE ICONOS ---
     private void updateIcons() {
-        btnCargar.setIcon(loadIcon("/assets/icons/add.png", 24));
-        btnGuardar.setIcon(loadIcon("/assets/icons/save.png", 24));
-        btnTema.setIcon(loadIcon("/assets/icons/theme.png", 24));
+        btnCargar.setIcon(loadIcon("/assets/icons/add.png", 20));
+        btnGuardar.setIcon(loadIcon("/assets/icons/save.png", 20));
+        btnTema.setIcon(loadIcon("/assets/icons/theme.png", 20));
+        btnVerOriginal.setIcon(loadIcon("/assets/icons/eye.png", 20)); // Añade un icono de ojo si tienes
     }
 
     private ImageIcon loadIcon(String path, int size) {
         try {
             java.net.URL imgUrl = getClass().getResource(path);
-            if (imgUrl == null)
-                return null;
+            if (imgUrl == null) return null;
             BufferedImage img = ImageIO.read(imgUrl);
-            if (!isDarkMode)
-                img = invertImageColors(img);
+            if (!isDarkMode) img = invertImageColors(img);
             Image resized = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
             return new ImageIcon(resized);
-        } catch (Exception e) {
-            return null;
-        }
+        } catch (Exception e) { return null; }
     }
 
     private BufferedImage invertImageColors(BufferedImage image) {
@@ -118,204 +125,136 @@ public class MainFrame extends JFrame {
             for (int x = 0; x < w; x++) {
                 int p = image.getRGB(x, y);
                 Color c = new Color(p, true);
-                res.setRGB(x, y,
-                        new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha()).getRGB());
+                res.setRGB(x, y, new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha()).getRGB());
             }
         }
         return res;
     }
 
-    // --- BLOQUE 1: MENÚ SUPERIOR ---
-    private void initMenu() {
-        JMenuBar menuBar = new JMenuBar();
-        JMenu menuArchivo = new JMenu("Archivo");
-
-        JMenuItem itemCargar = new JMenuItem("Abrir Imagen");
-        itemCargar.addActionListener(e -> accionCargar());
-
-        JMenuItem itemGuardar = new JMenuItem("Guardar Como...");
-        itemGuardar.addActionListener(e -> accionGuardar());
-
-        JMenuItem itemTema = new JMenuItem("Cambiar Color (Tema)");
-        itemTema.addActionListener(e -> accionCambiarTema());
-
-        menuArchivo.add(itemCargar);
-        menuArchivo.add(itemGuardar);
-        menuArchivo.addSeparator();
-        menuArchivo.add(itemTema);
-
-        menuBar.add(menuArchivo);
-        setJMenuBar(menuBar);
+    // --- WORKSPACE UNIFICADO ---
+    private void initWorkspace() {
+        scrollMain = new JScrollPane(labelMain);
+        scrollMain.setBorder(BorderFactory.createEmptyBorder()); // Elimina bordes para un look más limpio
+        add(scrollMain, BorderLayout.CENTER);
     }
 
-    // --- BLOQUE 2: BARRA LATERAL (Aquí añades filtros fácilmente) ---
-    private void initSidebar() {
+    // --- BARRA LATERAL DERECHA (ESTILO LIGHTROOM) ---
+    private void initRightSidebar() {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBorder(BorderFactory.createTitledBorder("Filtros Disponibles"));
-        sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // 1. Filtros normales
-        List<ImageFilter> misFiltros = new ArrayList<>();
-        misFiltros.add(new GrayscaleFilter(255));
-        misFiltros.add(new NegativeFilter());
-        misFiltros.add(new FrostedGlassFilter());
-        misFiltros.add(new CircularFadeFilter());
-        misFiltros.add(new BlackAndWhiteFilter());
-        misFiltros.add(ConvolutionFilter.Enfoque());
-        misFiltros.add(ConvolutionFilter.Desenfoque());
-        misFiltros.add(ConvolutionFilter.DesenfoquePesado());
-        misFiltros.add(ConvolutionFilter.Bordes());
-        misFiltros.add(ConvolutionFilter.Aclarar());
-        misFiltros.add(ConvolutionFilter.Oscurecer());
+        // Sección: Filtros de Color
+        sidebar.add(crearEncabezado("FILTROS DE COLOR", false));
+        agregarBotonFiltro(sidebar, new GrayscaleFilter(255));
+        agregarBotonFiltro(sidebar, new NegativeFilter());
+        agregarBotonFiltro(sidebar, new BlackAndWhiteFilter());
 
-        for (ImageFilter f : misFiltros) {
-            JButton btn = new JButton(f.getName());
-            btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-            btn.setMaximumSize(new Dimension(200, 30));
+        // Sección: Efectos Especiales
+        sidebar.add(crearEncabezado("EFECTOS VISUALES", true));
+        agregarBotonFiltro(sidebar, new FrostedGlassFilter());
+        agregarBotonFiltro(sidebar, new CircularFadeFilter());
 
-            // Acción: Primero limpia ventanas abiertas y luego aplica el filtro
-            btn.addActionListener(e -> {
+        // Sección: Convoluciones (En un combo para no saturar)
+        sidebar.add(crearEncabezado("ENFOQUE Y DESENFOQUE", true));
+        
+        ImageFilter[] convoluciones = {
+            ConvolutionFilter.Enfoque(), ConvolutionFilter.Desenfoque(), ConvolutionFilter.DesenfoquePesado(),
+            ConvolutionFilter.Bordes(), ConvolutionFilter.Aclarar(), ConvolutionFilter.Oscurecer()
+        };
+        JComboBox<String> comboConvolucion = new JComboBox<>();
+        comboConvolucion.addItem("Seleccionar...");
+        for (ImageFilter f : convoluciones) comboConvolucion.addItem(f.getName());
+        comboConvolucion.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        comboConvolucion.setAlignmentX(Component.CENTER_ALIGNMENT);
+        comboConvolucion.addActionListener(e -> {
+            int idx = comboConvolucion.getSelectedIndex();
+            if (idx > 0) {
                 cerrarVentanasFlotantes();
-                aplicarFiltro(f);
-            });
+                aplicarFiltro(convoluciones[idx - 1]);
+            }
+        });
+        sidebar.add(comboConvolucion);
 
-            sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-            sidebar.add(btn);
-        }
-        // 1. TRANSPARENCIA AJUSTABLE
-        JButton btnTransparencia = new JButton("Transparencia Ajustable");
-        btnTransparencia.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnTransparencia.setMaximumSize(new Dimension(200, 30));
-        btnTransparencia.addActionListener(e -> accionTransparenciaAjustable());
-
+        // Sección: Herramientas Dinámicas
+        sidebar.add(crearEncabezado("HERRAMIENTAS DINÁMICAS", true));
+        
+        JButton btnTrans = new JButton("Transparencia Ajustable");
+        btnTrans.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnTrans.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnTrans.addActionListener(e -> accionTransparenciaAjustable());
+        sidebar.add(btnTrans);
         sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnTransparencia);
+        
+        JButton btnMasc = new JButton("Máscaras de Bits");
+        btnMasc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnMasc.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnMasc.addActionListener(e -> accionMascaraBitsAdjustable());
+        sidebar.add(btnMasc);
 
-        // 2. MASCARAS AJUSTABLES (AHORA SÍ PEGADAS A TRANSPARENCIA)
-        JButton btnMascaras = new JButton("Máscaras Dinámicas");
-        btnMascaras.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnMascaras.setMaximumSize(new Dimension(200, 30));
-        btnMascaras.addActionListener(e -> accionMascaraBitsAdjustable());
+        // Sección: Análisis
+        sidebar.add(crearEncabezado("VISTAS DE ANÁLISIS", true));
+        
+        String[] analisis = {
+            "Bits", "Canales", "Retro 1", "Retro 2", "Radiales", "Estiramiento", "Convoluciones"
+        };
+        JComboBox<String> comboAnalisis = new JComboBox<>();
+        comboAnalisis.addItem("Seleccionar comparativa...");
+        for (String a : analisis) comboAnalisis.addItem(a);
+        comboAnalisis.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        comboAnalisis.setAlignmentX(Component.CENTER_ALIGNMENT);
+        comboAnalisis.addActionListener(e -> ejecutarAnalisis(comboAnalisis.getSelectedIndex()));
+        sidebar.add(comboAnalisis);
 
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnMascaras);
-
-        // SEPARADOR GRANDE
-        sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
-        sidebar.add(new JSeparator());
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        // 3. Botón Especial: Comparativa de Bits
-        JButton btnComparar = new JButton("Comparativa de Bits");
-        btnComparar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnComparar.setMaximumSize(new Dimension(200, 40));
-        btnComparar.setFont(btnComparar.getFont().deriveFont(Font.BOLD));
-        btnComparar.addActionListener(e -> accionComparativaBits());
-        sidebar.add(btnComparar);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararCanales = new JButton("Comparativa de Canales");
-        btnCompararCanales.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararCanales.setMaximumSize(new Dimension(200, 40));
-        btnCompararCanales.setFont(btnCompararCanales.getFont().deriveFont(Font.BOLD));
-        btnCompararCanales.addActionListener(e -> accionComparativaCanales());
-        sidebar.add(btnCompararCanales);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararRetro1 = new JButton("Comparativa Retro 1");
-        btnCompararRetro1.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararRetro1.setMaximumSize(new Dimension(200, 40));
-        btnCompararRetro1.setFont(btnCompararRetro1.getFont().deriveFont(Font.BOLD));
-        btnCompararRetro1.addActionListener(e -> accionComparativaRetro1());
-        sidebar.add(btnCompararRetro1);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararRetro2 = new JButton("Comparativa Retro 2");
-        btnCompararRetro2.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararRetro2.setMaximumSize(new Dimension(200, 40));
-        btnCompararRetro2.setFont(btnCompararRetro2.getFont().deriveFont(Font.BOLD));
-        btnCompararRetro2.addActionListener(e -> accionComparativaRetro2());
-        sidebar.add(btnCompararRetro2);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararRadiales = new JButton("Comparativa Radiales");
-        btnCompararRadiales.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararRadiales.setMaximumSize(new Dimension(200, 40));
-        btnCompararRadiales.setFont(btnCompararRadiales.getFont().deriveFont(Font.BOLD));
-        btnCompararRadiales.addActionListener(e -> accionComparativaRadiales());
-        sidebar.add(btnCompararRadiales);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararEstiramiento = new JButton("Comparativa Estiramiento");
-        btnCompararEstiramiento.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararEstiramiento.setMaximumSize(new Dimension(200, 40));
-        btnCompararEstiramiento.setFont(btnCompararEstiramiento.getFont().deriveFont(Font.BOLD));
-        btnCompararEstiramiento.addActionListener(e -> accionComparativaEstiramiento());
-        sidebar.add(btnCompararEstiramiento);
-
-        sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
-
-        JButton btnCompararConvolucion = new JButton("Comparativa Convoluciones");
-        btnCompararConvolucion.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnCompararConvolucion.setMaximumSize(new Dimension(200, 40));
-        btnCompararConvolucion.setFont(btnCompararConvolucion.getFont().deriveFont(Font.BOLD));
-        btnCompararConvolucion.addActionListener(e -> accionComparativaConvoluciones());
-        sidebar.add(btnCompararConvolucion);
-
-        // Botón para resetear (limpiar)
-        JButton btnReset = new JButton("Limpiar Todo");
+        // Spacer y Reset
+        sidebar.add(Box.createVerticalGlue());
+        JButton btnReset = new JButton("Restaurar Imagen");
+        btnReset.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         btnReset.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btnReset.setMaximumSize(new Dimension(200, 40));
-        btnReset.setBackground(new Color(200, 50, 50));
+        btnReset.setBackground(new Color(220, 50, 50));
         btnReset.setForeground(Color.WHITE);
         btnReset.addActionListener(e -> accionReset());
+        sidebar.add(btnReset);
 
-        JScrollPane scroll = new JScrollPane(sidebar);
-        JPanel container = new JPanel(new BorderLayout());
-        container.add(scroll, BorderLayout.CENTER);
-        container.add(btnReset, BorderLayout.SOUTH);
-
-        add(container, BorderLayout.WEST);
+        JScrollPane scrollSidebar = new JScrollPane(sidebar);
+        scrollSidebar.setPreferredSize(new Dimension(280, 0));
+        scrollSidebar.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, UIManager.getColor("Component.borderColor"))); // Borde sutil adaptable
+        add(scrollSidebar, BorderLayout.EAST); // Movido a la derecha
     }
 
-    // --- BLOQUE 3: ÁREA DE TRABAJO (Imágenes) ---
-    private JScrollPane scrollFiltered; // Guardamos referencia para cambiar el contenido
-
-    private void initWorkspace() {
-        scrollFiltered = new JScrollPane(labelFiltered);
-
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-        split.setTopComponent(new JScrollPane(labelOriginal));
-        split.setBottomComponent(scrollFiltered);
-        split.setDividerLocation(300);
-        split.setResizeWeight(0.5);
-
-        add(split, BorderLayout.CENTER);
+    private JPanel crearEncabezado(String titulo, boolean conMargenTop) {
+        JPanel panel = new JPanel(new BorderLayout());
+        JLabel lbl = new JLabel(titulo);
+        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setForeground(UIManager.getColor("Label.disabledForeground"));
+        panel.add(lbl, BorderLayout.WEST);
+        panel.add(new JSeparator(), BorderLayout.SOUTH);
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
+        panel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        int top = conMargenTop ? 20 : 0;
+        panel.setBorder(BorderFactory.createEmptyBorder(top, 0, 8, 0));
+        return panel;
     }
 
-    // --- LÓGICA DE ACCIONES ---
+    private void agregarBotonFiltro(JPanel contenedor, ImageFilter filtro) {
+        JButton btn = new JButton(filtro.getName());
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.putClientProperty("JButton.buttonType", "roundRect"); // Estilo FlatLaf
+        btn.addActionListener(e -> {
+            cerrarVentanasFlotantes();
+            aplicarFiltro(filtro);
+        });
+        contenedor.add(btn);
+        contenedor.add(Box.createRigidArea(new Dimension(0, 8)));
+    }
 
-    // --- NUEVO MÉTODO: ESCALAR IMAGEN PARA QUE QUEPA ---
     private ImageIcon prepararImagenParaLabel(BufferedImage img, boolean esComparativa) {
-        if (img == null)
-            return null;
-
-        // Definimos un ancho objetivo
-        // Si es comparativa, las hacemos miniaturas (250px)
-        // Si es la principal, intentamos que ocupe el ancho del panel disponible
-        int targetWidth = esComparativa ? 250 : 750;
-
-        // Calculamos el alto manteniendo la proporción (aspect ratio)
+        if (img == null) return null;
+        int targetWidth = esComparativa ? 250 : scrollMain.getWidth() - 20;
+        if (targetWidth <= 0) targetWidth = 800; // Fallback
         double ratio = (double) img.getHeight() / img.getWidth();
         int targetHeight = (int) (targetWidth * ratio);
-
-        // Redimensionamos con suavizado para que no pierda tanta calidad visual
         Image escalada = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
         return new ImageIcon(escalada);
     }
@@ -323,24 +262,53 @@ public class MainFrame extends JFrame {
     private void accionCargar() {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileFilter(new FileNameExtensionFilter("Imágenes", "jpg", "png", "jpeg"));
-
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 originalImage = ImageIO.read(chooser.getSelectedFile());
                 filteredImage = originalImage;
-
-                labelOriginal.setIcon(prepararImagenParaLabel(originalImage, false));
-                labelOriginal.setText("");
-
-                labelFiltered.setIcon(prepararImagenParaLabel(filteredImage, false));
-                labelFiltered.setText("");
-
-                scrollFiltered.setViewportView(labelFiltered);
+                labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
+                labelMain.setText("");
+                scrollMain.setViewportView(labelMain);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error al cargar: " + ex.getMessage());
             }
         }
     }
+
+    private void aplicarFiltro(ImageFilter filtro) {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+        filteredImage = filtro.apply(originalImage);
+        labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
+        scrollMain.setViewportView(labelMain); // Retorna a la vista de una imagen
+    }
+
+    private void accionReset() {
+        if (originalImage != null) {
+            cerrarVentanasFlotantes();
+            filteredImage = originalImage;
+            labelMain.setIcon(prepararImagenParaLabel(originalImage, false));
+            scrollMain.setViewportView(labelMain);
+        }
+    }
+
+    private void ejecutarAnalisis(int index) {
+        cerrarVentanasFlotantes();
+        // Redirige al método correspondiente según el ComboBox de análisis
+        switch (index) {
+            case 1 -> accionComparativaBits();
+            case 2 -> accionComparativaCanales();
+            case 3 -> accionComparativaRetro1();
+            case 4 -> accionComparativaRetro2();
+            case 5 -> accionComparativaRadiales();
+            case 6 -> accionComparativaEstiramiento();
+            case 7 -> accionComparativaConvoluciones();
+        }
+    }
+
+    // --- CÓDIGO ORIGINAL INTEGRADO ---
 
     private void accionComparativaBits() {
         if (originalImage == null) {
@@ -349,17 +317,14 @@ public class MainFrame extends JFrame {
         }
 
         int[] niveles = { 2, 4, 8, 64, 128, 255 };
-
-        // Usamos un panel con envoltura automática (FlowLayout)
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200)); // Tamaño sugerido para el scroll
+        panelGrid.setPreferredSize(new Dimension(900, 1200));
 
         for (int n : niveles) {
             GrayscaleFilter f = new GrayscaleFilter(n);
             BufferedImage imgResult = f.apply(originalImage);
 
             JPanel item = new JPanel(new BorderLayout());
-            // Mostramos versión pequeña en la comparativa
             JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
             JLabel infoLabel = new JLabel("Nivel Gris N = " + n, SwingConstants.CENTER);
             infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
@@ -371,7 +336,7 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
@@ -382,9 +347,7 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // Tipos: 1:Rojo, 2:Verde, 3:Azul, 4:Mitad, 5:Tercios
         int[] tipos = { 1, 2, 3, 4, 5 };
-
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1200));
 
@@ -404,7 +367,7 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
@@ -435,7 +398,7 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
@@ -451,7 +414,7 @@ public class MainFrame extends JFrame {
         panelGrid.setPreferredSize(new Dimension(900, 1200));
 
         for (int n : niveles) {
-            RetroTwoFilter f = new RetroTwoFilter(n, 1); // Modo 1: RG
+            RetroTwoFilter f = new RetroTwoFilter(n, 1);
             BufferedImage imgResult = f.apply(originalImage);
 
             JPanel item = new JPanel(new BorderLayout());
@@ -466,12 +429,17 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
 
     private void accionComparativaRadiales() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+
         int[] tipos = { 1, 2, 3, 4, 5 };
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1200));
@@ -492,7 +460,7 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
@@ -503,14 +471,11 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // Mostraremos: 2 bits RGB, 2 bits HSV, 4 bits RGB, 4 bits HSV, 8 bits RGB, 8
-        // bits HSV
         int[] bitsArr = { 2, 4, 8 };
         JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         panelGrid.setPreferredSize(new Dimension(900, 1500));
 
         for (int b : bitsArr) {
-            // Variante RGB
             StretchingFilter fRGB = new StretchingFilter(b, 1);
             BufferedImage imgRGB = fRGB.apply(originalImage);
 
@@ -520,7 +485,6 @@ public class MainFrame extends JFrame {
             itemRGB.setBorder(BorderFactory.createEtchedBorder());
             panelGrid.add(itemRGB);
 
-            // Variante HSV
             StretchingFilter fHSV = new StretchingFilter(b, 2);
             BufferedImage imgHSV = fHSV.apply(originalImage);
 
@@ -531,7 +495,7 @@ public class MainFrame extends JFrame {
             panelGrid.add(itemHSV);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
@@ -564,34 +528,31 @@ public class MainFrame extends JFrame {
             panelGrid.add(item);
         }
 
-        scrollFiltered.setViewportView(panelGrid);
+        scrollMain.setViewportView(panelGrid);
         revalidate();
         repaint();
     }
 
-    private void aplicarFiltro(ImageFilter filtro) {
-        if (originalImage == null) {
-            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
-            return;
-        }
-        filteredImage = filtro.apply(originalImage);
-        labelFiltered.setIcon(prepararImagenParaLabel(filteredImage, false));
-
-        // Nos aseguramos de mostrar el label individual en el scroll
-        scrollFiltered.setViewportView(labelFiltered);
-    }
-
-    private void accionReset() {
-        if (originalImage != null) {
-            filteredImage = originalImage;
-            labelFiltered.setIcon(prepararImagenParaLabel(originalImage, false));
-            scrollFiltered.setViewportView(labelFiltered);
-        }
-    }
-
     private void accionGuardar() {
-        if (filteredImage == null)
-            return;
+        Component view = scrollMain.getViewport().getView();
+        if (view == null) return;
+
+        BufferedImage imageToSave = null;
+
+        // Determinar qué estamos viendo actualmente
+        if (view instanceof JPanel) {
+            // Es una vista de análisis (Grid)
+            JPanel panel = (JPanel) view;
+            imageToSave = new BufferedImage(panel.getWidth(), panel.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2d = imageToSave.createGraphics();
+            panel.paint(g2d);
+            g2d.dispose();
+        } else if (view instanceof JLabel && filteredImage != null) {
+            // Es la vista normal de imagen filtrada
+            imageToSave = filteredImage;
+        }
+
+        if (imageToSave == null) return;
 
         JFileChooser chooser = new JFileChooser();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
@@ -600,8 +561,8 @@ public class MainFrame extends JFrame {
                 if (!output.getName().toLowerCase().endsWith(".png")) {
                     output = new File(output.getAbsolutePath() + ".png");
                 }
-                ImageIO.write(filteredImage, "png", output);
-                JOptionPane.showMessageDialog(this, "Imagen guardada!");
+                ImageIO.write(imageToSave, "png", output);
+                JOptionPane.showMessageDialog(this, "Imagen guardada exitosamente!");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error al guardar.");
             }
@@ -611,7 +572,7 @@ public class MainFrame extends JFrame {
     private void accionCambiarTema() {
         try {
             isDarkMode = !isDarkMode;
-            updateIcons(); // Actualiza los colores de los iconos
+            updateIcons();
 
             if (isDarkMode) {
                 UIManager.setLookAndFeel(new FlatDarkLaf());
@@ -624,54 +585,65 @@ public class MainFrame extends JFrame {
         }
     }
 
+    public void syncTheme(boolean isDark) {
+        if (this.isDarkMode != isDark) {
+            this.isDarkMode = isDark;
+            updateIcons();
+            try {
+                if (isDarkMode) UIManager.setLookAndFeel(new FlatDarkLaf());
+                else UIManager.setLookAndFeel(new FlatLightLaf());
+                SwingUtilities.updateComponentTreeUI(this);
+            } catch (Exception e) {}
+        }
+    }
+
+    private void abrirEditorAvanzado() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+        cerrarVentanasFlotantes();
+        this.setVisible(false);
+        // Pasamos la imagen que se está viendo actualmente (puede ser con 1 filtro ya) para seguir apilando
+        AdvancedEditorFrame advanced = new AdvancedEditorFrame(this, filteredImage, isDarkMode);
+        advanced.setVisible(true);
+    }
+
     private void accionTransparenciaAjustable() {
         if (originalImage == null) {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
 
-        // 1. Si la ventanita ya está abierta, solo la traemos al frente y no hacemos
-        // nada más
         if (ventanaTransparencia != null && ventanaTransparencia.isVisible()) {
             ventanaTransparencia.toFront();
             return;
         }
 
-        // 2. Creamos un JDialog NO MODAL (el 'false' significa que puedes seguir
-        // tocando el programa)
         ventanaTransparencia = new JDialog(this, "Nivel de Transparencia", false);
         ventanaTransparencia.setLayout(new BorderLayout());
 
-        // 3. Creamos el slider e iniciamos con el último valor recordado
         JSlider slider = new JSlider(0, 100, ultimoValorTransparencia);
         slider.setMajorTickSpacing(25);
         slider.setMinorTickSpacing(5);
         slider.setPaintTicks(true);
         slider.setPaintLabels(true);
-        // Le damos un poco de margen para que se vea bonito
         slider.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // 4. ESTO HACE EL CAMBIO EN TIEMPO REAL AL MOVER LA BARRA
         slider.addChangeListener(e -> {
-            ultimoValorTransparencia = slider.getValue(); // Guardamos el valor para la próxima
+            ultimoValorTransparencia = slider.getValue();
             float factor = ultimoValorTransparencia / 100.0f;
             aplicarFiltro(new TransparenciaFilter(factor));
         });
 
-        // Aplicamos el filtro al abrir la ventana para que la imagen coincida con la
-        // barrita
         aplicarFiltro(new TransparenciaFilter(ultimoValorTransparencia / 100.0f));
 
         ventanaTransparencia.add(slider, BorderLayout.CENTER);
         ventanaTransparencia.pack();
 
-        // 5. UBICACIÓN: Calculamos la esquina superior derecha del programa
-        // this.getX() y this.getWidth() nos dicen dónde está la ventana principal
         int xPos = this.getX() + this.getWidth() - ventanaTransparencia.getWidth() - 30;
-        int yPos = this.getY() + 70; // Un poco más abajo de la barra de título
+        int yPos = this.getY() + 70;
         ventanaTransparencia.setLocation(xPos, yPos);
-
-        // Mostramos la herramienta
         ventanaTransparencia.setVisible(true);
     }
 
@@ -681,18 +653,14 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // 1. Si ya está abierta, la traemos al frente
         if (ventanaMascara != null && ventanaMascara.isVisible()) {
             ventanaMascara.toFront();
             return;
         }
 
-        // 2. Creamos la ventanita NO MODAL (el 'false' permite seguir usando el
-        // programa)
         ventanaMascara = new JDialog(this, "Filtro de Máscaras", false);
         ventanaMascara.setLayout(new BorderLayout());
 
-        // 3. Creamos el slider con el último valor recordado
         JSlider slider = new JSlider(1, 8, ultimoValorMascara);
         slider.setMajorTickSpacing(1);
         slider.setPaintTicks(true);
@@ -700,35 +668,24 @@ public class MainFrame extends JFrame {
         slider.setBorder(BorderFactory.createTitledBorder("Bits por Canal (1-8)"));
         slider.setPreferredSize(new Dimension(250, 70));
 
-        // 4. Acción en tiempo real al mover la barrita
         slider.addChangeListener(e -> {
             ultimoValorMascara = slider.getValue();
-            // 0.8f es tu factorT original, puedes cambiarlo si lo ves muy oscuro
             aplicarFiltro(new BitMaskFilter(ultimoValorMascara, 0.8f));
         });
 
-        // Aplicamos el filtro al abrir la ventana para que la imagen coincida
         aplicarFiltro(new BitMaskFilter(ultimoValorMascara, 0.8f));
 
         ventanaMascara.add(slider, BorderLayout.CENTER);
         ventanaMascara.pack();
 
-        // 5. Ubicación: Esquina superior derecha (Un poco más abajo que la de
-        // transparencia
-        // para que no se encimen si abres las dos al mismo tiempo)
         int xPos = this.getX() + this.getWidth() - ventanaMascara.getWidth() - 30;
         int yPos = this.getY() + 150;
         ventanaMascara.setLocation(xPos, yPos);
-
-        // Mostramos la herramienta
         ventanaMascara.setVisible(true);
     }
 
-    // --- MÉTODO PARA ESCONDER VENTANAS FLOTANTES ---
     private void cerrarVentanasFlotantes() {
-        if (ventanaTransparencia != null)
-            ventanaTransparencia.setVisible(false);
-        if (ventanaMascara != null)
-            ventanaMascara.setVisible(false);
+        if (ventanaTransparencia != null) ventanaTransparencia.setVisible(false);
+        if (ventanaMascara != null) ventanaMascara.setVisible(false);
     }
 }
