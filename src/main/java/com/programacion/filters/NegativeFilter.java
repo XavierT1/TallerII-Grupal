@@ -9,7 +9,7 @@ public class NegativeFilter implements ImageFilter {
         if (originalImage == null) return null;
 
         // Usamos los mismos nombres de variables para que sea fácil de memorizar
-        int pixel, a, r, g, b, pixelNuevo;
+        int pixel, a, r, g, b;
         int ancho, alto;
 
         ancho = originalImage.getWidth();
@@ -17,31 +17,29 @@ public class NegativeFilter implements ImageFilter {
 
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
 
-        // Bucle con i (alto) y j (ancho)
-        for (int i = 0; i < alto; i++) {
-            for (int j = 0; j < ancho; j++) {
-                
-                // 1. Obtener pixel original
-                pixel = originalImage.getRGB(j, i);
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
 
-                // 2. Extraer canales (Desplazamiento de bits)
-                a = (pixel >> 24) & 0xFF;
-                r = (pixel >> 16) & 0xFF;
-                g = (pixel >> 8) & 0xFF;
-                b = (pixel >> 0) & 0xFF;
+        // Bucle lineal
+        for (int i = 0; i < pixels.length; i++) {
+            pixel = pixels[i];
 
-                // 3. Lógica del Negativo (Invertir colores)
-                r = 255 - r;
-                g = 255 - g;
-                b = 255 - b;
+            // Extraer canales (Desplazamiento de bits)
+            a = (pixel >> 24) & 0xFF;
+            r = (pixel >> 16) & 0xFF;
+            g = (pixel >> 8) & 0xFF;
+            b = pixel & 0xFF;
 
-                // 4. Reconstruir el pixelNuevo
-                pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
+            // Lógica del Negativo (Invertir colores)
+            r = 255 - r;
+            g = 255 - g;
+            b = 255 - b;
 
-                // 5. Guardar el resultado
-                result.setRGB(j, i, pixelNuevo);
-            }
+            // Reconstruir y guardar
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

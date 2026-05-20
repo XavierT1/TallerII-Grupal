@@ -26,20 +26,25 @@ public class RGBAdjustmentFilter implements ImageFilter {
         int height = image.getHeight();
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int p = image.getRGB(x, y);
-                Color c = new Color(p, true);
-                int a = c.getAlpha();
-                
-                // Add offsets and clamp to 0-255
-                int r = Math.min(255, Math.max(0, c.getRed() + rOffset));
-                int g = Math.min(255, Math.max(0, c.getGreen() + gOffset));
-                int b = Math.min(255, Math.max(0, c.getBlue() + bOffset));
-                
-                result.setRGB(x, y, new Color(r, g, b, a).getRGB());
-            }
+        int[] pixels = new int[width * height];
+        image.getRGB(0, 0, width, height, pixels, 0, width);
+
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            int a = (p >> 24) & 0xFF;
+            int r = (p >> 16) & 0xFF;
+            int g = (p >> 8) & 0xFF;
+            int b = p & 0xFF;
+
+            // Add offsets and clamp to 0-255
+            r = Math.min(255, Math.max(0, r + rOffset));
+            g = Math.min(255, Math.max(0, g + gOffset));
+            b = Math.min(255, Math.max(0, b + bOffset));
+
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
+
+        result.setRGB(0, 0, width, height, pixels, 0, width);
         return result;
     }
 }

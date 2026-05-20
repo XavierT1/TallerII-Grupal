@@ -16,29 +16,31 @@ public class BlackAndWhiteFilter implements ImageFilter {
 
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
 
-        for (int i = 0; i < alto; i++) {
-            for (int j = 0; j < ancho; j++) {
-                pixel = originalImage.getRGB(j, i);
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
 
-                a = (pixel >> 24) & 0xFF;
-                r = (pixel >> 16) & 0xFF;
-                g = (pixel >> 8) & 0xFF;
-                b = (pixel >> 0) & 0xFF;
+        for (int i = 0; i < pixels.length; i++) {
+            pixel = pixels[i];
 
-                // 1. Calcular el valor de gris (Brillo)
-                gris = (int)(0.2126 * r + 0.7152 * g + 0.0722 * b);
+            a = (pixel >> 24) & 0xFF;
+            r = (pixel >> 16) & 0xFF;
+            g = (pixel >> 8) & 0xFF;
+            b = pixel & 0xFF;
 
-                // 2. Umbral (Threshold): Si es claro -> Blanco, si es oscuro -> Negro
-                if (gris > 127) {
-                    r = g = b = 255;
-                } else {
-                    r = g = b = 0;
-                }
+            // 1. Calcular el valor de gris (Brillo)
+            gris = (int)(0.2126 * r + 0.7152 * g + 0.0722 * b);
 
-                pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
-                result.setRGB(j, i, pixelNuevo);
+            // 2. Umbral (Threshold): Si es claro -> Blanco, si es oscuro -> Negro
+            if (gris > 127) {
+                r = g = b = 255;
+            } else {
+                r = g = b = 0;
             }
+
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

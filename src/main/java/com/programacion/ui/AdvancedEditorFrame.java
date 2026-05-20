@@ -23,8 +23,10 @@ public class AdvancedEditorFrame extends JFrame {
     private Stack<BufferedImage> history = new Stack<>();
     private Stack<String> filterNames = new Stack<>();
 
-    private JLabel labelMain = new JLabel("Sin imagen", SwingConstants.CENTER);
+    private ImagePreviewPanel previewPanel = new ImagePreviewPanel();
     private JScrollPane scrollMain;
+    private JLayeredPane layeredPane;
+    private HistogramPanel miniHistogramPanel;
     private boolean isDarkMode;
 
     private JButton btnGuardar, btnDeshacer, btnReiniciar, btnVolver, btnTema;
@@ -37,10 +39,15 @@ public class AdvancedEditorFrame extends JFrame {
     private JDialog ventanaTransparencia = null;
     private JDialog ventanaMascara = null;
     private JDialog ventanaRGB = null;
+    private JDialog ventanaHSV = null;
+    private JDialog ventanaMatrices = null;
+    private JDialog ventanaHistograma = null;
+    private Thread previewThread = null;
 
     private int ultimoValorTransparencia = 50;
     private int ultimoValorMascara = 4;
     private int valR = 0, valG = 0, valB = 0;
+    private int valH = 0, valS = 0, valV = 0;
 
     public AdvancedEditorFrame(MainFrame parentFrame, BufferedImage initialImage, boolean isDarkMode) {
         this.parentFrame = parentFrame;
@@ -134,22 +141,48 @@ public class AdvancedEditorFrame extends JFrame {
     }
 
     private void initWorkspace() {
-        scrollMain = new JScrollPane(labelMain);
+        layeredPane = new JLayeredPane();
+
+        scrollMain = new JScrollPane(previewPanel);
         scrollMain.setBorder(BorderFactory.createEmptyBorder());
-        
-        // Mantener para ver Original (funcionalidad extra en el label)
-        labelMain.addMouseListener(new MouseAdapter() {
+
+        miniHistogramPanel = new HistogramPanel();
+        miniHistogramPanel.setOverlay(true);
+        miniHistogramPanel.setMode(HistogramPanel.Mode.RGB);
+        miniHistogramPanel.setVisible(false);
+
+        // Mantener para ver Original (funcionalidad extra en el panel)
+        previewPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (originalImage != null) labelMain.setIcon(prepararImagenParaLabel(originalImage));
+                if (originalImage != null && e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() == 1) {
+                    previewPanel.setImage(originalImage);
+                }
             }
             @Override
             public void mouseReleased(MouseEvent e) {
-                if (currentImage != null) labelMain.setIcon(prepararImagenParaLabel(currentImage));
+                if (currentImage != null && e.getButton() == MouseEvent.BUTTON1) {
+                    previewPanel.setImage(currentImage);
+                }
             }
         });
-        
-        add(scrollMain, BorderLayout.CENTER);
+
+        layeredPane.add(scrollMain, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(miniHistogramPanel, JLayeredPane.PALETTE_LAYER);
+
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = layeredPane.getWidth();
+                int h = layeredPane.getHeight();
+                scrollMain.setBounds(0, 0, w, h);
+                int hw = 220;
+                int hh = 150;
+                miniHistogramPanel.setBounds(w - hw - 20, h - hh - 20, hw, hh);
+            }
+        });
+
+        add(layeredPane, BorderLayout.CENTER);
     }
 
     private void initRightSidebar() {
@@ -191,21 +224,21 @@ public class AdvancedEditorFrame extends JFrame {
 
         // Herramientas Dinámicas
         sidebar.add(crearEncabezado("HERRAMIENTAS DINÁMICAS", true));
-        
+
         JButton btnTrans = new JButton("Transparencia Ajustable");
         btnTrans.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         btnTrans.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnTrans.addActionListener(e -> accionTransparenciaAjustable());
         sidebar.add(btnTrans);
         sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        
+
         JButton btnMasc = new JButton("Máscaras de Bits");
         btnMasc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         btnMasc.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnMasc.addActionListener(e -> accionMascaraBitsAdjustable());
         sidebar.add(btnMasc);
         sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        
+
         JButton btnRGB = new JButton("Tonalidades RGB");
         btnRGB.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         btnRGB.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -213,11 +246,37 @@ public class AdvancedEditorFrame extends JFrame {
         btnRGB.setForeground(Color.WHITE);
         btnRGB.addActionListener(e -> accionAjusteRGB());
         sidebar.add(btnRGB);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        JButton btnHSV = new JButton("Ajuste HSV");
+        btnHSV.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnHSV.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnHSV.addActionListener(e -> accionAjusteHSV());
+        sidebar.add(btnHSV);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        JButton btnMatrices = new JButton("Matrices de Color");
+        btnMatrices.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnMatrices.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnMatrices.addActionListener(e -> accionMatricesColor());
+        sidebar.add(btnMatrices);
+
+        // Análisis de Imagen
+        sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
+        sidebar.add(crearEncabezado("ANÁLISIS DE IMAGEN", true));
+
+        JButton btnHistograma = new JButton("Ver Histograma");
+        btnHistograma.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnHistograma.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnHistograma.setBackground(new Color(120, 80, 160));
+        btnHistograma.setForeground(Color.WHITE);
+        btnHistograma.addActionListener(e -> accionHistograma());
+        sidebar.add(btnHistograma);
 
         // Historial de Efectos
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(crearEncabezado("HISTORIAL DE EFECTOS", true));
-        
+
         listHistorial = new JList<>(modelHistorial);
         listHistorial.setEnabled(false); // Solo visual
         listHistorial.setBackground(UIManager.getColor("Panel.background"));
@@ -274,30 +333,62 @@ public class AdvancedEditorFrame extends JFrame {
 
     private void mostrarImagen(BufferedImage img) {
         if (img != null) {
-            labelMain.setIcon(prepararImagenParaLabel(img));
-            labelMain.setText(""); // Eliminar el texto "Sin imagen" cuando hay imagen
-            scrollMain.setViewportView(labelMain);
+            previewPanel.setImage(img);
+            scrollMain.setViewportView(previewPanel);
+
+            if (miniHistogramPanel != null) {
+                miniHistogramPanel.setImage(img);
+                miniHistogramPanel.setVisible(true);
+            }
+
+            if (ventanaHistograma != null && ventanaHistograma.isVisible()) {
+                Component[] comps = ventanaHistograma.getContentPane().getComponents();
+                for (Component c : comps) {
+                    if (c instanceof HistogramPanel) {
+                        ((HistogramPanel) c).setImage(img);
+                        break;
+                    }
+                }
+            }
         }
     }
 
     private void aplicarFiltro(ImageFilter filtro) {
         if (currentImage == null) return;
-        
+
         // Guardamos el estado actual en el historial antes de aplicar el filtro
         history.push(copyImage(currentImage));
         filterNames.push(filtro.getName());
-        
-        // Aplicamos el filtro al currentImage (Apilamiento)
-        currentImage = filtro.apply(currentImage);
-        mostrarImagen(currentImage);
-        btnDeshacer.setEnabled(true);
-        actualizarHistorialVista();
+
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            BufferedImage result = filtro.apply(currentImage);
+            SwingUtilities.invokeLater(() -> {
+                currentImage = result;
+                mostrarImagen(currentImage);
+                btnDeshacer.setEnabled(true);
+                actualizarHistorialVista();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
-    private void aplicarPrevisualizacionDinamica(ImageFilter filtro) {
+    private synchronized void aplicarPrevisualizacionDinamica(ImageFilter filtro) {
         if (currentImage == null) return;
-        previewImage = filtro.apply(currentImage);
-        mostrarImagen(previewImage);
+        if (previewThread != null && previewThread.isAlive()) {
+            previewThread.interrupt();
+        }
+
+        previewThread = new Thread(() -> {
+            BufferedImage result = filtro.apply(currentImage);
+            if (!Thread.currentThread().isInterrupted()) {
+                SwingUtilities.invokeLater(() -> {
+                    previewImage = result;
+                    mostrarImagen(previewImage);
+                });
+            }
+        });
+        previewThread.start();
     }
 
     private void confirmarHerramientaDinamica(String nombreFiltro) {
@@ -488,6 +579,44 @@ public class AdvancedEditorFrame extends JFrame {
         posicionarVentana(ventanaRGB, 230);
     }
 
+    private void accionHistograma() {
+        if (ventanaHistograma != null && ventanaHistograma.isVisible()) {
+            ventanaHistograma.toFront(); return;
+        }
+
+        ventanaHistograma = new JDialog(this, "Histograma de Imagen", false);
+        ventanaHistograma.setLayout(new BorderLayout());
+
+        HistogramPanel histogramPanel = new HistogramPanel();
+        histogramPanel.setImage(currentImage != null ? currentImage : originalImage);
+
+        // Opciones de visualización
+        JPanel panelOpciones = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JRadioButton rbRGB = new JRadioButton("RGB Combinado", true);
+        JRadioButton rbR = new JRadioButton("Solo Rojo");
+        JRadioButton rbG = new JRadioButton("Solo Verde");
+        JRadioButton rbB = new JRadioButton("Solo Azul");
+
+        ButtonGroup bg = new ButtonGroup();
+        bg.add(rbRGB); bg.add(rbR); bg.add(rbG); bg.add(rbB);
+
+        rbRGB.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.RGB));
+        rbR.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.RED));
+        rbG.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.GREEN));
+        rbB.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.BLUE));
+
+        panelOpciones.add(rbRGB);
+        panelOpciones.add(rbR);
+        panelOpciones.add(rbG);
+        panelOpciones.add(rbB);
+
+        ventanaHistograma.add(histogramPanel, BorderLayout.CENTER);
+        ventanaHistograma.add(panelOpciones, BorderLayout.SOUTH);
+
+        ventanaHistograma.pack();
+        posicionarVentana(ventanaHistograma, 310);
+    }
+
     private JSlider crearSliderRGB(String titulo, int min, int max) {
         JSlider slider = new JSlider(min, max, 0);
         slider.setMajorTickSpacing(128);
@@ -500,12 +629,12 @@ public class AdvancedEditorFrame extends JFrame {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton btnCancelar = new JButton("Cancelar");
         btnCancelar.addActionListener(e -> descartarHerramientaDinamica());
-        
+
         JButton btnAplicar = new JButton("Aplicar");
         btnAplicar.setBackground(new Color(40, 160, 80));
         btnAplicar.setForeground(Color.WHITE);
         btnAplicar.addActionListener(e -> confirmarHerramientaDinamica(nombreFiltro));
-        
+
         panel.add(btnCancelar);
         panel.add(btnAplicar);
         return panel;
@@ -518,10 +647,134 @@ public class AdvancedEditorFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    private void accionAjusteHSV() {
+        if (ventanaHSV != null && ventanaHSV.isVisible()) {
+            ventanaHSV.toFront(); return;
+        }
+
+        ventanaHSV = new JDialog(this, "Ajuste HSV", false);
+        ventanaHSV.setLayout(new BoxLayout(ventanaHSV.getContentPane(), BoxLayout.Y_AXIS));
+
+        valH = 0; valS = 0; valV = 0;
+
+        JSlider sliderH = new JSlider(-180, 180, 0);
+        sliderH.setMajorTickSpacing(90);
+        sliderH.setPaintTicks(true);
+        sliderH.setBorder(BorderFactory.createTitledBorder("Tono (Hue) (-180° a 180°)"));
+
+        JSlider sliderS = new JSlider(-100, 100, 0);
+        sliderS.setMajorTickSpacing(50);
+        sliderS.setPaintTicks(true);
+        sliderS.setBorder(BorderFactory.createTitledBorder("Saturación (-100% a 100%)"));
+
+        JSlider sliderV = new JSlider(-100, 100, 0);
+        sliderV.setMajorTickSpacing(50);
+        sliderV.setPaintTicks(true);
+        sliderV.setBorder(BorderFactory.createTitledBorder("Brillo (Value) (-100% a 100%)"));
+
+        javax.swing.event.ChangeListener listener = e -> {
+            valH = sliderH.getValue();
+            valS = sliderS.getValue();
+            valV = sliderV.getValue();
+            aplicarPrevisualizacionDinamica(new HSVAdjustmentFilter(valH / 360.0f, valS / 100.0f, valV / 100.0f));
+        };
+
+        sliderH.addChangeListener(listener);
+        sliderS.addChangeListener(listener);
+        sliderV.addChangeListener(listener);
+
+        ventanaHSV.add(sliderH);
+        ventanaHSV.add(sliderS);
+        ventanaHSV.add(sliderV);
+
+        JPanel panelBotones = crearBotonesDinamicos("Ajuste HSV");
+        ventanaHSV.add(panelBotones);
+
+        ventanaHSV.pack();
+        posicionarVentana(ventanaHSV, 380);
+    }
+
+    private void accionMatricesColor() {
+        if (ventanaMatrices != null && ventanaMatrices.isVisible()) {
+            ventanaMatrices.toFront(); return;
+        }
+
+        ventanaMatrices = new JDialog(this, "Matrices de Color", false);
+        ventanaMatrices.setLayout(new BorderLayout());
+
+        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío"};
+        JComboBox<String> comboPresets = new JComboBox<>(presets);
+        comboPresets.setBorder(BorderFactory.createTitledBorder("Seleccionar Preset"));
+
+        JPanel gridPanel = new JPanel(new GridLayout(4, 5, 5, 5));
+        gridPanel.setBorder(BorderFactory.createTitledBorder("Coeficientes (4x5)"));
+        JTextField[] fields = new JTextField[20];
+
+        float[] currentMatrix = ColorMatrixFilter.getNeutral().clone();
+
+        for (int i = 0; i < 20; i++) {
+            fields[i] = new JTextField(String.format("%.3f", currentMatrix[i]));
+            fields[i].setHorizontalAlignment(JTextField.CENTER);
+            gridPanel.add(fields[i]);
+        }
+
+        Runnable updateMatrixPreview = () -> {
+            float[] mat = new float[20];
+            try {
+                for (int i = 0; i < 20; i++) {
+                    String text = fields[i].getText().trim().replace(',', '.');
+                    mat[i] = Float.parseFloat(text);
+                }
+                aplicarPrevisualizacionDinamica(new ColorMatrixFilter("Matriz de Color", mat));
+            } catch (NumberFormatException ex) {
+            }
+        };
+
+        java.awt.event.KeyAdapter keyListener = new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                updateMatrixPreview.run();
+            }
+        };
+        for (int i = 0; i < 20; i++) {
+            fields[i].addKeyListener(keyListener);
+        }
+
+        comboPresets.addActionListener(e -> {
+            float[] selectedMat;
+            switch (comboPresets.getSelectedIndex()) {
+                case 1 -> selectedMat = ColorMatrixFilter.getSepia();
+                case 2 -> selectedMat = ColorMatrixFilter.getVintage();
+                case 3 -> selectedMat = ColorMatrixFilter.getPolaroid();
+                case 4 -> selectedMat = ColorMatrixFilter.getGrayscale();
+                case 5 -> selectedMat = ColorMatrixFilter.getInvert();
+                case 6 -> selectedMat = ColorMatrixFilter.getWarm();
+                case 7 -> selectedMat = ColorMatrixFilter.getCool();
+                default -> selectedMat = ColorMatrixFilter.getNeutral();
+            }
+            for (int i = 0; i < 20; i++) {
+                fields[i].setText(String.format("%.3f", selectedMat[i]));
+            }
+            updateMatrixPreview.run();
+        });
+
+        ventanaMatrices.add(comboPresets, BorderLayout.NORTH);
+        ventanaMatrices.add(gridPanel, BorderLayout.CENTER);
+
+        JPanel panelBotones = crearBotonesDinamicos("Matriz de Color");
+        ventanaMatrices.add(panelBotones, BorderLayout.SOUTH);
+
+        ventanaMatrices.pack();
+        posicionarVentana(ventanaMatrices, 450);
+    }
+
     private void cerrarVentanasFlotantes() {
         if (ventanaTransparencia != null) ventanaTransparencia.setVisible(false);
         if (ventanaMascara != null) ventanaMascara.setVisible(false);
         if (ventanaRGB != null) ventanaRGB.setVisible(false);
+        if (ventanaHSV != null) ventanaHSV.setVisible(false);
+        if (ventanaMatrices != null) ventanaMatrices.setVisible(false);
+        if (ventanaHistograma != null) ventanaHistograma.setVisible(false);
         // Si había una previsualización activa y el usuario cerró la ventana de golpe, se descarta.
         if (previewImage != null) {
             descartarHerramientaDinamica();

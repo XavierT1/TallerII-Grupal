@@ -8,7 +8,7 @@ public class CircularFadeFilter implements ImageFilter {
     public BufferedImage apply(BufferedImage originalImage) {
         if (originalImage == null) return null;
 
-        int pixel, a, r, g, b, pixelNuevo;
+        int pixel, a, r, g, b;
         int ancho, alto;
 
         ancho = originalImage.getWidth();
@@ -23,29 +23,34 @@ public class CircularFadeFilter implements ImageFilter {
         // Distancia máxima (del centro a una esquina)
         double maxDist = Math.sqrt(cx * cx + cy * cy);
 
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
+
         for (int i = 0; i < alto; i++) {
+            int rowOffset = i * ancho;
             for (int j = 0; j < ancho; j++) {
-                pixel = originalImage.getRGB(j, i);
+                int index = rowOffset + j;
+                pixel = pixels[index];
 
                 r = (pixel >> 16) & 0xFF;
                 g = (pixel >> 8) & 0xFF;
-                b = (pixel >> 0) & 0xFF;
+                b = pixel & 0xFF;
 
                 // Calcular distancia al centro (Teorema de Pitágoras)
                 double dist = Math.sqrt(Math.pow(j - cx, 2) + Math.pow(i - cy, 2));
 
                 // Lógica: a mayor distancia, menor Alpha (más transparente)
                 a = (int)(255 - (dist * 255 / maxDist));
-                
+
                 // Aseguramos que 'a' no se salga del rango 0-255
                 if (a < 0) a = 0;
 
                 // Reconstruir pixel
-                pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
-
-                result.setRGB(j, i, pixelNuevo);
+                pixels[index] = (a << 24) | (r << 16) | (g << 8) | b;
             }
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

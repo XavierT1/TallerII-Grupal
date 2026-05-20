@@ -20,24 +20,26 @@ public class TransparenciaFilter implements ImageFilter {
         int alto = originalImage.getHeight();
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
 
-        for (int y = 0; y < alto; y++) {
-            for (int x = 0; x < ancho; x++) {
-                int pixel = originalImage.getRGB(x, y);
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
 
-                int a = (pixel >> 24) & 0xFF;
-                int r = (pixel >> 16) & 0xFF;
-                int g = (pixel >> 8) & 0xFF;
-                int b = (pixel >> 0) & 0xFF;
+        for (int i = 0; i < pixels.length; i++) {
+            int pixel = pixels[i];
 
-                if (a == 0)
-                    a = 255;
+            int a = (pixel >> 24) & 0xFF;
+            int r = (pixel >> 16) & 0xFF;
+            int g = (pixel >> 8) & 0xFF;
+            int b = pixel & 0xFF;
 
-                a = (int) (a * factorT);
+            if (a == 0)
+                a = 255;
 
-                int pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
-                result.setRGB(x, y, pixelNuevo);
-            }
+            a = (int) (a * factorT);
+
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

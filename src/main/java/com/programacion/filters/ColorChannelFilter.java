@@ -14,7 +14,7 @@ public class ColorChannelFilter implements ImageFilter {
     public BufferedImage apply(BufferedImage originalImage) {
         if (originalImage == null) return null;
 
-        int pixel, r, g, b, pixelNuevo;
+        int pixel, r, g, b;
         int ancho, alto;
 
         ancho = originalImage.getWidth();
@@ -23,9 +23,14 @@ public class ColorChannelFilter implements ImageFilter {
         // Usamos TYPE_INT_RGB para evitar problemas de transparencia
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_RGB);
 
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
+
         for (int i = 0; i < alto; i++) {
+            int rowOffset = i * ancho;
             for (int j = 0; j < ancho; j++) {
-                pixel = originalImage.getRGB(j, i);
+                int index = rowOffset + j;
+                pixel = pixels[index];
 
                 // Extraemos canales
                 r = (pixel >> 16) & 0xFF;
@@ -56,10 +61,11 @@ public class ColorChannelFilter implements ImageFilter {
                 }
 
                 // Forzamos Alpha a 255 (Opaco)
-                pixelNuevo = (0xFF << 24) | (r << 16) | (g << 8) | b;
-                result.setRGB(j, i, pixelNuevo);
+                pixels[index] = (0xFF << 24) | (r << 16) | (g << 8) | b;
             }
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

@@ -8,7 +8,6 @@ import javax.swing.UIManager;
 public class Principal {
     public static void main(String[] args) {
         try {
-            // Empezamos con el tema oscuro
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception ex) {
             ex.printStackTrace();

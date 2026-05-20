@@ -22,7 +22,10 @@ public class RadialGradientFilter implements ImageFilter {
         int cy = alto / 2;
         double maxDist = Math.sqrt(cx * cx + cy * cy);
 
+        int[] pixels = new int[ancho * alto];
+
         for (int i = 0; i < alto; i++) {
+            int rowOffset = i * ancho;
             for (int j = 0; j < ancho; j++) {
                 int intensidad = 0;
 
@@ -49,15 +52,16 @@ public class RadialGradientFilter implements ImageFilter {
                 if (intensidad > 255) intensidad = 255;
                 if (intensidad < 0) intensidad = 0;
 
-                // Generar color Azul-Negro (según tu método colorAzulNegro)
+                // Generar color Azul-Negro
                 int r = 0;
                 int g = 0;
                 int b = intensidad;
-                int pixel = (r << 16) | (g << 8) | b;
 
-                result.setRGB(j, i, pixel);
+                pixels[rowOffset + j] = (r << 16) | (g << 8) | b;
             }
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

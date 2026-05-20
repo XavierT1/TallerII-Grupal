@@ -16,28 +16,28 @@ public class FrostedGlassFilter implements ImageFilter {
         // buffer para la imagen resultante
         BufferedImage result = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
 
-        for (int y = 0; y < alto; y++) {
-            for (int x = 0; x < ancho; x++) {
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
 
-                int pixel = originalImage.getRGB(x, y);
+        for (int i = 0; i < pixels.length; i++) {
+            int pixel = pixels[i];
 
-                // Extracción de canales
-                int r = (pixel >> 16) & 0xFF;
-                int g = (pixel >> 8) & 0xFF;
-                int b = (pixel >> 0) & 0xFF;
+            // Extracción de canales
+            int r = (pixel >> 16) & 0xFF;
+            int g = (pixel >> 8) & 0xFF;
+            int b = pixel & 0xFF;
 
-                // Cálculo de brillo
-                int brillo = (r + g + b) / 3;
+            // Cálculo de brillo
+            int brillo = (r + g + b) / 3;
 
-                // Cálculo del canal Alpha
-                int a = (int) (50 + (brillo * (205.0 / 255.0)));
+            // Cálculo del canal Alpha
+            int a = (int) (50 + (brillo * (205.0 / 255.0)));
 
-                // Reconstrucción del píxel
-                int pixelNuevo = (a << 24) | (r << 16) | (g << 8) | (b << 0);
-
-                result.setRGB(x, y, pixelNuevo);
-            }
+            // Reconstrucción del píxel
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 

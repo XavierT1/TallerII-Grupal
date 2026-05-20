@@ -19,16 +19,24 @@ import java.util.List;
 public class MainFrame extends JFrame {
     private BufferedImage originalImage;
     private BufferedImage filteredImage;
-    private JLabel labelMain = new JLabel("Sin imagen", SwingConstants.CENTER);
+    private ImagePreviewPanel previewPanel = new ImagePreviewPanel();
     private JScrollPane scrollMain;
+    private JLayeredPane layeredPane;
+    private HistogramPanel miniHistogramPanel;
     private boolean isDarkMode = true;
 
     private int ultimoValorTransparencia = 50;
     private JDialog ventanaTransparencia = null;
     private int ultimoValorMascara = 4;
     private JDialog ventanaMascara = null;
+    private JDialog ventanaHistograma = null;
+    private JDialog ventanaHSV = null;
+    private JDialog ventanaMatrices = null;
+    private int ultimoHueHSV = 0;
+    private int ultimoSatHSV = 0;
+    private int ultimoValHSV = 0;
 
-    private JButton btnCargar, btnGuardar, btnTema, btnVerOriginal, btnModoApilado;
+    private JButton btnCargar, btnLimpiar, btnGuardar, btnTema, btnVerOriginal, btnModoApilado;
 
     public MainFrame() {
         setTitle("Editor de Imágenes Universitario");
@@ -52,6 +60,9 @@ public class MainFrame extends JFrame {
         btnCargar = new JButton("Cargar");
         btnCargar.addActionListener(e -> accionCargar());
 
+        btnLimpiar = new JButton("Limpiar");
+        btnLimpiar.addActionListener(e -> accionLimpiar());
+
         btnGuardar = new JButton("Guardar");
         btnGuardar.addActionListener(e -> accionGuardar());
 
@@ -59,23 +70,21 @@ public class MainFrame extends JFrame {
         btnVerOriginal.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnVerOriginal.addMouseListener(new MouseAdapter() {
             private Component previousView;
-            
+
             @Override
             public void mousePressed(MouseEvent e) {
                 if (originalImage != null) {
                     previousView = scrollMain.getViewport().getView();
-                    labelMain.setIcon(prepararImagenParaLabel(originalImage, false));
-                    if (previousView != labelMain) {
-                        scrollMain.setViewportView(labelMain);
+                    if (previousView == previewPanel) {
+                        previewPanel.setImage(originalImage);
                     }
                 }
             }
             @Override
             public void mouseReleased(MouseEvent e) {
                 if (filteredImage != null) {
-                    labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
-                    if (previousView != null && previousView != labelMain) {
-                        scrollMain.setViewportView(previousView);
+                    if (previousView == previewPanel) {
+                        previewPanel.setImage(filteredImage);
                     }
                 }
             }
@@ -88,6 +97,8 @@ public class MainFrame extends JFrame {
         btnModoApilado.addActionListener(e -> abrirEditorAvanzado());
 
         toolBar.add(btnCargar);
+        toolBar.addSeparator();
+        toolBar.add(btnLimpiar);
         toolBar.addSeparator();
         toolBar.add(btnGuardar);
         toolBar.addSeparator();
@@ -105,6 +116,8 @@ public class MainFrame extends JFrame {
         btnGuardar.setIcon(loadIcon("/assets/icons/save.png", 20));
         btnTema.setIcon(loadIcon("/assets/icons/theme.png", 20));
         btnVerOriginal.setIcon(loadIcon("/assets/icons/eye.png", 20)); // Añade un icono de ojo si tienes
+        ImageIcon clearIcon = loadIcon("/assets/icons/delete.png", 20);
+        if (clearIcon != null) btnLimpiar.setIcon(clearIcon);
     }
 
     private ImageIcon loadIcon(String path, int size) {
@@ -133,9 +146,32 @@ public class MainFrame extends JFrame {
 
     // --- WORKSPACE UNIFICADO ---
     private void initWorkspace() {
-        scrollMain = new JScrollPane(labelMain);
+        layeredPane = new JLayeredPane();
+
+        scrollMain = new JScrollPane(previewPanel);
         scrollMain.setBorder(BorderFactory.createEmptyBorder()); // Elimina bordes para un look más limpio
-        add(scrollMain, BorderLayout.CENTER);
+
+        miniHistogramPanel = new HistogramPanel();
+        miniHistogramPanel.setOverlay(true);
+        miniHistogramPanel.setMode(HistogramPanel.Mode.RGB);
+        miniHistogramPanel.setVisible(false); // Oculto hasta que se cargue imagen
+
+        layeredPane.add(scrollMain, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(miniHistogramPanel, JLayeredPane.PALETTE_LAYER);
+
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = layeredPane.getWidth();
+                int h = layeredPane.getHeight();
+                scrollMain.setBounds(0, 0, w, h);
+                int hw = 220;
+                int hh = 150;
+                miniHistogramPanel.setBounds(w - hw - 20, h - hh - 20, hw, hh);
+            }
+        });
+
+        add(layeredPane, BorderLayout.CENTER);
     }
 
     // --- BARRA LATERAL DERECHA (ESTILO LIGHTROOM) ---
@@ -157,7 +193,7 @@ public class MainFrame extends JFrame {
 
         // Sección: Convoluciones (En un combo para no saturar)
         sidebar.add(crearEncabezado("ENFOQUE Y DESENFOQUE", true));
-        
+
         ImageFilter[] convoluciones = {
             ConvolutionFilter.Enfoque(), ConvolutionFilter.Desenfoque(), ConvolutionFilter.DesenfoquePesado(),
             ConvolutionFilter.Bordes(), ConvolutionFilter.Aclarar(), ConvolutionFilter.Oscurecer()
@@ -178,23 +214,46 @@ public class MainFrame extends JFrame {
 
         // Sección: Herramientas Dinámicas
         sidebar.add(crearEncabezado("HERRAMIENTAS DINÁMICAS", true));
-        
+
         JButton btnTrans = new JButton("Transparencia Ajustable");
         btnTrans.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         btnTrans.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnTrans.addActionListener(e -> accionTransparenciaAjustable());
         sidebar.add(btnTrans);
         sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        
+
         JButton btnMasc = new JButton("Máscaras de Bits");
         btnMasc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         btnMasc.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnMasc.addActionListener(e -> accionMascaraBitsAdjustable());
         sidebar.add(btnMasc);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        JButton btnHSV = new JButton("Ajuste HSV");
+        btnHSV.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnHSV.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnHSV.addActionListener(e -> accionAjusteHSV());
+        sidebar.add(btnHSV);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        JButton btnMatrices = new JButton("Matrices de Color");
+        btnMatrices.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnMatrices.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnMatrices.addActionListener(e -> accionMatricesColor());
+        sidebar.add(btnMatrices);
 
         // Sección: Análisis
         sidebar.add(crearEncabezado("VISTAS DE ANÁLISIS", true));
-        
+
+        JButton btnHistograma = new JButton("Ver Histograma");
+        btnHistograma.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        btnHistograma.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnHistograma.setBackground(new Color(120, 80, 160));
+        btnHistograma.setForeground(Color.WHITE);
+        btnHistograma.addActionListener(e -> accionHistograma());
+        sidebar.add(btnHistograma);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+
         String[] analisis = {
             "Bits", "Canales", "Retro 1", "Retro 2", "Radiales", "Estiramiento", "Convoluciones"
         };
@@ -266,12 +325,23 @@ public class MainFrame extends JFrame {
             try {
                 originalImage = ImageIO.read(chooser.getSelectedFile());
                 filteredImage = originalImage;
-                labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
-                labelMain.setText("");
-                scrollMain.setViewportView(labelMain);
+                previewPanel.setImage(filteredImage);
+                scrollMain.setViewportView(previewPanel);
+                notificarHistograma();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error al cargar: " + ex.getMessage());
             }
+        }
+    }
+
+    private void accionLimpiar() {
+        cerrarVentanasFlotantes();
+        originalImage = null;
+        filteredImage = null;
+        previewPanel.setImage(null);
+        scrollMain.setViewportView(previewPanel);
+        if (miniHistogramPanel != null) {
+            miniHistogramPanel.setVisible(false);
         }
     }
 
@@ -280,17 +350,44 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
-        filteredImage = filtro.apply(originalImage);
-        labelMain.setIcon(prepararImagenParaLabel(filteredImage, false));
-        scrollMain.setViewportView(labelMain); // Retorna a la vista de una imagen
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            BufferedImage result = filtro.apply(originalImage);
+            SwingUtilities.invokeLater(() -> {
+                filteredImage = result;
+                previewPanel.setImage(filteredImage);
+                scrollMain.setViewportView(previewPanel); // Retorna a la vista de una imagen
+                notificarHistograma();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionReset() {
         if (originalImage != null) {
             cerrarVentanasFlotantes();
             filteredImage = originalImage;
-            labelMain.setIcon(prepararImagenParaLabel(originalImage, false));
-            scrollMain.setViewportView(labelMain);
+            previewPanel.setImage(originalImage);
+            scrollMain.setViewportView(previewPanel);
+            notificarHistograma();
+        }
+    }
+
+    private void notificarHistograma() {
+        if (filteredImage != null) {
+            if (miniHistogramPanel != null) {
+                miniHistogramPanel.setImage(filteredImage);
+                miniHistogramPanel.setVisible(true);
+            }
+        }
+
+        if (ventanaHistograma != null && ventanaHistograma.isVisible()) {
+            for (Component c : ventanaHistograma.getContentPane().getComponents()) {
+                if (c instanceof HistogramPanel) {
+                    ((HistogramPanel) c).setImage(filteredImage);
+                    break;
+                }
+            }
         }
     }
 
@@ -315,30 +412,35 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] niveles = { 2, 4, 8, 64, 128, 255 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1200));
 
-        int[] niveles = { 2, 4, 8, 64, 128, 255 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200));
+            for (int n : niveles) {
+                GrayscaleFilter f = new GrayscaleFilter(n);
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (int n : niveles) {
-            GrayscaleFilter f = new GrayscaleFilter(n);
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
+                JLabel infoLabel = new JLabel("Nivel Gris N = " + n, SwingConstants.CENTER);
+                infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
 
-            JPanel item = new JPanel(new BorderLayout());
-            JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
-            JLabel infoLabel = new JLabel("Nivel Gris N = " + n, SwingConstants.CENTER);
-            infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+                item.add(imgLabel, BorderLayout.CENTER);
+                item.add(infoLabel, BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
 
-            item.add(imgLabel, BorderLayout.CENTER);
-            item.add(infoLabel, BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaCanales() {
@@ -346,30 +448,35 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] tipos = { 1, 2, 3, 4, 5 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1200));
 
-        int[] tipos = { 1, 2, 3, 4, 5 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200));
+            for (int t : tipos) {
+                ColorChannelFilter f = new ColorChannelFilter(t);
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (int t : tipos) {
-            ColorChannelFilter f = new ColorChannelFilter(t);
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
+                JLabel infoLabel = new JLabel(f.getName(), SwingConstants.CENTER);
+                infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
 
-            JPanel item = new JPanel(new BorderLayout());
-            JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
-            JLabel infoLabel = new JLabel(f.getName(), SwingConstants.CENTER);
-            infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+                item.add(imgLabel, BorderLayout.CENTER);
+                item.add(infoLabel, BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
 
-            item.add(imgLabel, BorderLayout.CENTER);
-            item.add(infoLabel, BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaRetro1() {
@@ -377,30 +484,35 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] niveles = { 2, 4, 8, 64, 128, 255 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1200));
 
-        int[] niveles = { 2, 4, 8, 64, 128, 255 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200));
+            for (int n : niveles) {
+                RetroEffectFilter f = new RetroEffectFilter(n);
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (int n : niveles) {
-            RetroEffectFilter f = new RetroEffectFilter(n);
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
+                JLabel infoLabel = new JLabel("Retro 1 (RGB) N = " + n, SwingConstants.CENTER);
+                infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
 
-            JPanel item = new JPanel(new BorderLayout());
-            JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
-            JLabel infoLabel = new JLabel("Retro 1 (RGB) N = " + n, SwingConstants.CENTER);
-            infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+                item.add(imgLabel, BorderLayout.CENTER);
+                item.add(infoLabel, BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
 
-            item.add(imgLabel, BorderLayout.CENTER);
-            item.add(infoLabel, BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaRetro2() {
@@ -408,30 +520,35 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] niveles = { 2, 4, 8, 64, 128, 255 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1200));
 
-        int[] niveles = { 2, 4, 8, 64, 128, 255 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200));
+            for (int n : niveles) {
+                RetroTwoFilter f = new RetroTwoFilter(n, 1);
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (int n : niveles) {
-            RetroTwoFilter f = new RetroTwoFilter(n, 1);
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
+                JLabel infoLabel = new JLabel("Retro 2 (RG) N = " + n, SwingConstants.CENTER);
+                infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
 
-            JPanel item = new JPanel(new BorderLayout());
-            JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
-            JLabel infoLabel = new JLabel("Retro 2 (RG) N = " + n, SwingConstants.CENTER);
-            infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+                item.add(imgLabel, BorderLayout.CENTER);
+                item.add(infoLabel, BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
 
-            item.add(imgLabel, BorderLayout.CENTER);
-            item.add(infoLabel, BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaRadiales() {
@@ -439,30 +556,35 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] tipos = { 1, 2, 3, 4, 5 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1200));
 
-        int[] tipos = { 1, 2, 3, 4, 5 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1200));
+            for (int t : tipos) {
+                RadialGradientFilter f = new RadialGradientFilter(t);
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (int t : tipos) {
-            RadialGradientFilter f = new RadialGradientFilter(t);
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
+                JLabel infoLabel = new JLabel(f.getName(), SwingConstants.CENTER);
+                infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
 
-            JPanel item = new JPanel(new BorderLayout());
-            JLabel imgLabel = new JLabel(prepararImagenParaLabel(imgResult, true));
-            JLabel infoLabel = new JLabel(f.getName(), SwingConstants.CENTER);
-            infoLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+                item.add(imgLabel, BorderLayout.CENTER);
+                item.add(infoLabel, BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
 
-            item.add(imgLabel, BorderLayout.CENTER);
-            item.add(infoLabel, BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaEstiramiento() {
@@ -470,34 +592,39 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            int[] bitsArr = { 2, 4, 8 };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1500));
 
-        int[] bitsArr = { 2, 4, 8 };
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1500));
+            for (int b : bitsArr) {
+                StretchingFilter fRGB = new StretchingFilter(b, 1);
+                BufferedImage imgRGB = fRGB.apply(originalImage);
 
-        for (int b : bitsArr) {
-            StretchingFilter fRGB = new StretchingFilter(b, 1);
-            BufferedImage imgRGB = fRGB.apply(originalImage);
+                JPanel itemRGB = new JPanel(new BorderLayout());
+                itemRGB.add(new JLabel(prepararImagenParaLabel(imgRGB, true)), BorderLayout.CENTER);
+                itemRGB.add(new JLabel(fRGB.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
+                itemRGB.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(itemRGB);
 
-            JPanel itemRGB = new JPanel(new BorderLayout());
-            itemRGB.add(new JLabel(prepararImagenParaLabel(imgRGB, true)), BorderLayout.CENTER);
-            itemRGB.add(new JLabel(fRGB.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
-            itemRGB.setBorder(BorderFactory.createEtchedBorder());
-            panelGrid.add(itemRGB);
+                StretchingFilter fHSV = new StretchingFilter(b, 2);
+                BufferedImage imgHSV = fHSV.apply(originalImage);
 
-            StretchingFilter fHSV = new StretchingFilter(b, 2);
-            BufferedImage imgHSV = fHSV.apply(originalImage);
+                JPanel itemHSV = new JPanel(new BorderLayout());
+                itemHSV.add(new JLabel(prepararImagenParaLabel(imgHSV, true)), BorderLayout.CENTER);
+                itemHSV.add(new JLabel(fHSV.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
+                itemHSV.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(itemHSV);
+            }
 
-            JPanel itemHSV = new JPanel(new BorderLayout());
-            itemHSV.add(new JLabel(prepararImagenParaLabel(imgHSV, true)), BorderLayout.CENTER);
-            itemHSV.add(new JLabel(fHSV.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
-            itemHSV.setBorder(BorderFactory.createEtchedBorder());
-            panelGrid.add(itemHSV);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionComparativaConvoluciones() {
@@ -505,32 +632,37 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
             return;
         }
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new Thread(() -> {
+            ImageFilter[] convs = {
+                    ConvolutionFilter.Enfoque(),
+                    ConvolutionFilter.Desenfoque(),
+                    ConvolutionFilter.DesenfoquePesado(),
+                    ConvolutionFilter.Bordes(),
+                    ConvolutionFilter.Aclarar(),
+                    ConvolutionFilter.Oscurecer()
+            };
 
-        ImageFilter[] convs = {
-                ConvolutionFilter.Enfoque(),
-                ConvolutionFilter.Desenfoque(),
-                ConvolutionFilter.DesenfoquePesado(),
-                ConvolutionFilter.Bordes(),
-                ConvolutionFilter.Aclarar(),
-                ConvolutionFilter.Oscurecer()
-        };
+            JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            panelGrid.setPreferredSize(new Dimension(900, 1500));
 
-        JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panelGrid.setPreferredSize(new Dimension(900, 1500));
+            for (ImageFilter f : convs) {
+                BufferedImage imgResult = f.apply(originalImage);
 
-        for (ImageFilter f : convs) {
-            BufferedImage imgResult = f.apply(originalImage);
+                JPanel item = new JPanel(new BorderLayout());
+                item.add(new JLabel(prepararImagenParaLabel(imgResult, true)), BorderLayout.CENTER);
+                item.add(new JLabel(f.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
+                item.setBorder(BorderFactory.createEtchedBorder());
+                panelGrid.add(item);
+            }
 
-            JPanel item = new JPanel(new BorderLayout());
-            item.add(new JLabel(prepararImagenParaLabel(imgResult, true)), BorderLayout.CENTER);
-            item.add(new JLabel(f.getName(), SwingConstants.CENTER), BorderLayout.SOUTH);
-            item.setBorder(BorderFactory.createEtchedBorder());
-            panelGrid.add(item);
-        }
-
-        scrollMain.setViewportView(panelGrid);
-        revalidate();
-        repaint();
+            SwingUtilities.invokeLater(() -> {
+                scrollMain.setViewportView(panelGrid);
+                revalidate();
+                repaint();
+                setCursor(Cursor.getDefaultCursor());
+            });
+        }).start();
     }
 
     private void accionGuardar() {
@@ -540,14 +672,14 @@ public class MainFrame extends JFrame {
         BufferedImage imageToSave = null;
 
         // Determinar qué estamos viendo actualmente
-        if (view instanceof JPanel) {
+        if (view instanceof JPanel && view != previewPanel) {
             // Es una vista de análisis (Grid)
             JPanel panel = (JPanel) view;
             imageToSave = new BufferedImage(panel.getWidth(), panel.getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D g2d = imageToSave.createGraphics();
             panel.paint(g2d);
             g2d.dispose();
-        } else if (view instanceof JLabel && filteredImage != null) {
+        } else if (view == previewPanel && filteredImage != null) {
             // Es la vista normal de imagen filtrada
             imageToSave = filteredImage;
         }
@@ -684,8 +816,198 @@ public class MainFrame extends JFrame {
         ventanaMascara.setVisible(true);
     }
 
+    private void accionHistograma() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+        if (ventanaHistograma != null && ventanaHistograma.isVisible()) {
+            ventanaHistograma.toFront(); return;
+        }
+
+        ventanaHistograma = new JDialog(this, "Histograma de Imagen", false);
+        ventanaHistograma.setLayout(new BorderLayout());
+
+        HistogramPanel histogramPanel = new HistogramPanel();
+        histogramPanel.setImage(filteredImage != null ? filteredImage : originalImage);
+
+        // Opciones de visualización
+        JPanel panelOpciones = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JRadioButton rbRGB = new JRadioButton("RGB Combinado", true);
+        JRadioButton rbR = new JRadioButton("Solo Rojo");
+        JRadioButton rbG = new JRadioButton("Solo Verde");
+        JRadioButton rbB = new JRadioButton("Solo Azul");
+
+        ButtonGroup bg = new ButtonGroup();
+        bg.add(rbRGB); bg.add(rbR); bg.add(rbG); bg.add(rbB);
+
+        rbRGB.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.RGB));
+        rbR.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.RED));
+        rbG.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.GREEN));
+        rbB.addActionListener(e -> histogramPanel.setMode(HistogramPanel.Mode.BLUE));
+
+        panelOpciones.add(rbRGB);
+        panelOpciones.add(rbR);
+        panelOpciones.add(rbG);
+        panelOpciones.add(rbB);
+
+        ventanaHistograma.add(histogramPanel, BorderLayout.CENTER);
+        ventanaHistograma.add(panelOpciones, BorderLayout.SOUTH);
+
+        ventanaHistograma.pack();
+
+        int xPos = this.getX() + this.getWidth() - ventanaHistograma.getWidth() - 30;
+        int yPos = this.getY() + 230;
+        ventanaHistograma.setLocation(xPos, yPos);
+        ventanaHistograma.setVisible(true);
+    }
+
+    private void accionAjusteHSV() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+
+        if (ventanaHSV != null && ventanaHSV.isVisible()) {
+            ventanaHSV.toFront();
+            return;
+        }
+
+        ventanaHSV = new JDialog(this, "Ajuste HSV (Tono, Sat, Brillo)", false);
+        ventanaHSV.setLayout(new BoxLayout(ventanaHSV.getContentPane(), BoxLayout.Y_AXIS));
+
+        JSlider sliderH = new JSlider(-180, 180, ultimoHueHSV);
+        sliderH.setMajorTickSpacing(90);
+        sliderH.setPaintTicks(true);
+        sliderH.setPaintLabels(true);
+        sliderH.setBorder(BorderFactory.createTitledBorder("Tono (Hue) (-180° a 180°)"));
+
+        JSlider sliderS = new JSlider(-100, 100, ultimoSatHSV);
+        sliderS.setMajorTickSpacing(50);
+        sliderS.setPaintTicks(true);
+        sliderS.setPaintLabels(true);
+        sliderS.setBorder(BorderFactory.createTitledBorder("Saturación (-100% a 100%)"));
+
+        JSlider sliderV = new JSlider(-100, 100, ultimoValHSV);
+        sliderV.setMajorTickSpacing(50);
+        sliderV.setPaintTicks(true);
+        sliderV.setPaintLabels(true);
+        sliderV.setBorder(BorderFactory.createTitledBorder("Brillo (Value) (-100% a 100%)"));
+
+        javax.swing.event.ChangeListener listener = e -> {
+            ultimoHueHSV = sliderH.getValue();
+            ultimoSatHSV = sliderS.getValue();
+            ultimoValHSV = sliderV.getValue();
+            aplicarFiltro(new HSVAdjustmentFilter(ultimoHueHSV / 360.0f, ultimoSatHSV / 100.0f, ultimoValHSV / 100.0f));
+        };
+
+        sliderH.addChangeListener(listener);
+        sliderS.addChangeListener(listener);
+        sliderV.addChangeListener(listener);
+
+        ventanaHSV.add(sliderH);
+        ventanaHSV.add(sliderS);
+        ventanaHSV.add(sliderV);
+        ventanaHSV.pack();
+
+        int xPos = this.getX() + this.getWidth() - ventanaHSV.getWidth() - 30;
+        int yPos = this.getY() + 310;
+        ventanaHSV.setLocation(xPos, yPos);
+        ventanaHSV.setVisible(true);
+    }
+
+    private void accionMatricesColor() {
+        if (originalImage == null) {
+            JOptionPane.showMessageDialog(this, "Carga una imagen primero.");
+            return;
+        }
+
+        if (ventanaMatrices != null && ventanaMatrices.isVisible()) {
+            ventanaMatrices.toFront();
+            return;
+        }
+
+        ventanaMatrices = new JDialog(this, "Matrices de Color", false);
+        ventanaMatrices.setLayout(new BorderLayout());
+
+        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío"};
+        JComboBox<String> comboPresets = new JComboBox<>(presets);
+        comboPresets.setBorder(BorderFactory.createTitledBorder("Seleccionar Preset"));
+
+        JPanel gridPanel = new JPanel(new GridLayout(4, 5, 5, 5));
+        gridPanel.setBorder(BorderFactory.createTitledBorder("Coeficientes de la Matriz (4x5)"));
+        JTextField[] fields = new JTextField[20];
+
+        float[] currentMatrix = ColorMatrixFilter.getNeutral().clone();
+
+        for (int i = 0; i < 20; i++) {
+            fields[i] = new JTextField(String.format("%.3f", currentMatrix[i]));
+            fields[i].setHorizontalAlignment(JTextField.CENTER);
+            gridPanel.add(fields[i]);
+        }
+
+        Runnable applyMatrixFilter = () -> {
+            float[] mat = new float[20];
+            try {
+                for (int i = 0; i < 20; i++) {
+                    String text = fields[i].getText().trim().replace(',', '.');
+                    mat[i] = Float.parseFloat(text);
+                }
+                aplicarFiltro(new ColorMatrixFilter("Matriz de Color", mat));
+            } catch (NumberFormatException ex) {
+            }
+        };
+
+        java.awt.event.KeyAdapter keyListener = new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                applyMatrixFilter.run();
+            }
+        };
+        for (int i = 0; i < 20; i++) {
+            fields[i].addKeyListener(keyListener);
+        }
+
+        comboPresets.addActionListener(e -> {
+            float[] selectedMat;
+            switch (comboPresets.getSelectedIndex()) {
+                case 1 -> selectedMat = ColorMatrixFilter.getSepia();
+                case 2 -> selectedMat = ColorMatrixFilter.getVintage();
+                case 3 -> selectedMat = ColorMatrixFilter.getPolaroid();
+                case 4 -> selectedMat = ColorMatrixFilter.getGrayscale();
+                case 5 -> selectedMat = ColorMatrixFilter.getInvert();
+                case 6 -> selectedMat = ColorMatrixFilter.getWarm();
+                case 7 -> selectedMat = ColorMatrixFilter.getCool();
+                default -> selectedMat = ColorMatrixFilter.getNeutral();
+            }
+
+            for (int i = 0; i < 20; i++) {
+                fields[i].setText(String.format("%.3f", selectedMat[i]));
+            }
+            applyMatrixFilter.run();
+        });
+
+        ventanaMatrices.add(comboPresets, BorderLayout.NORTH);
+        ventanaMatrices.add(gridPanel, BorderLayout.CENTER);
+
+        JButton btnCerrar = new JButton("Cerrar");
+        btnCerrar.addActionListener(e -> ventanaMatrices.setVisible(false));
+        JPanel panelSouth = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        panelSouth.add(btnCerrar);
+        ventanaMatrices.add(panelSouth, BorderLayout.SOUTH);
+
+        ventanaMatrices.pack();
+        int xPos = this.getX() + this.getWidth() - ventanaMatrices.getWidth() - 30;
+        int yPos = this.getY() + 380;
+        ventanaMatrices.setLocation(xPos, yPos);
+        ventanaMatrices.setVisible(true);
+    }
+
     private void cerrarVentanasFlotantes() {
         if (ventanaTransparencia != null) ventanaTransparencia.setVisible(false);
         if (ventanaMascara != null) ventanaMascara.setVisible(false);
+        if (ventanaHSV != null) ventanaHSV.setVisible(false);
+        if (ventanaMatrices != null) ventanaMatrices.setVisible(false);
+        if (ventanaHistograma != null) ventanaHistograma.setVisible(false);
     }
 }

@@ -24,46 +24,52 @@ public class StretchingFilter implements ImageFilter {
         int niveles = (int) Math.pow(2, bits);
         int mascara = niveles - 1;
 
-        for (int y = 0; y < alto; y++) {
-            for (int x = 0; x < ancho; x++) {
-                int pixel = originalImage.getRGB(x, y);
-                int a = (pixel >> 24) & 0xFF;
-                int r = (pixel >> 16) & 0xFF;
-                int g = (pixel >> 8) & 0xFF;
-                int b = (pixel >> 0) & 0xFF;
+        int[] pixels = new int[ancho * alto];
+        originalImage.getRGB(0, 0, ancho, alto, pixels, 0, ancho);
 
-                int pixelNuevo;
+        // Pre-allocate hsv array to minimize garbage collection overhead
+        float[] hsv = new float[3];
 
-                if (modo == 1) {
-                    // --- Estiramiento RGB ---
-                    if (bits < 8) {
-                        r = (r >> (8 - bits)) & mascara;
-                        g = (g >> (8 - bits)) & mascara;
-                        b = (b >> (8 - bits)) & mascara;
+        for (int i = 0; i < pixels.length; i++) {
+            int pixel = pixels[i];
+            int a = (pixel >> 24) & 0xFF;
+            int r = (pixel >> 16) & 0xFF;
+            int g = (pixel >> 8) & 0xFF;
+            int b = pixel & 0xFF;
 
-                        r = (r * 255) / mascara;
-                        g = (g * 255) / mascara;
-                        b = (b * 255) / mascara;
-                    }
-                    pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
-                } else {
-                    // --- Estiramiento HSV (Brillo) ---
-                    float[] hsv = Color.RGBtoHSB(r, g, b, null);
-                    float h = hsv[0];
-                    float s = hsv[1];
-                    float v = hsv[2];
+            int pixelNuevo;
 
-                    if (bits < 8) {
-                        v = (float) ((int) (v * (niveles - 1))) / (niveles - 1);
-                    }
+            if (modo == 1) {
+                // --- Estiramiento RGB ---
+                if (bits < 8) {
+                    r = (r >> (8 - bits)) & mascara;
+                    g = (g >> (8 - bits)) & mascara;
+                    b = (b >> (8 - bits)) & mascara;
 
-                    int rgb = Color.HSBtoRGB(h, s, v);
-                    pixelNuevo = (a << 24) | (rgb & 0x00FFFFFF);
+                    r = (r * 255) / mascara;
+                    g = (g * 255) / mascara;
+                    b = (b * 255) / mascara;
+                }
+                pixelNuevo = (a << 24) | (r << 16) | (g << 8) | b;
+            } else {
+                // --- Estiramiento HSV (Brillo) ---
+                Color.RGBtoHSB(r, g, b, hsv);
+                float h = hsv[0];
+                float s = hsv[1];
+                float v = hsv[2];
+
+                if (bits < 8) {
+                    v = (float) ((int) (v * (niveles - 1))) / (niveles - 1);
                 }
 
-                result.setRGB(x, y, pixelNuevo);
+                int rgb = Color.HSBtoRGB(h, s, v);
+                pixelNuevo = (a << 24) | (rgb & 0x00FFFFFF);
             }
+
+            pixels[i] = pixelNuevo;
         }
+
+        result.setRGB(0, 0, ancho, alto, pixels, 0, ancho);
         return result;
     }
 
