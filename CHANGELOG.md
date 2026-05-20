@@ -11,6 +11,26 @@ Aquí puedes ir anotando los cambios que estás haciendo y que aún no has lanza
 
 ---
 
+## [1.0.4] - 2026-05-19
+
+### Añadido (Added)
+- Panel de previsualización con zoom y ajuste automático a pantalla.
+- Panel de histograma RGB con visualización combinada y por canal.
+- Ajuste HSV para modificar tono, saturación y brillo.
+- Filtro de matriz de color con presets como sepia, vintage, polaroid, escala de grises, inversión, cálido y frío.
+- Nuevas herramientas de histograma, HSV y matrices de color en la ventana principal y en el editor avanzado.
+
+### Cambiado (Changed)
+- Versión del proyecto actualizada a `1.0.4`.
+- Optimización de filtros para procesar imágenes mediante buffers de píxeles en lugar de llamadas pixel por pixel.
+- Comparativas y previsualizaciones ejecutadas en segundo plano para mejorar la respuesta de la interfaz.
+- Vista principal y editor avanzado migrados al nuevo panel de previsualización reutilizable.
+
+### Corregido (Fixed)
+- Exclusión de `.codegraph/` para evitar subir archivos locales de análisis del entorno.
+
+---
+
 ## [1.0.3] - 2026-05-05
 
 ### Añadido (Added)
