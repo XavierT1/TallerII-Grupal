@@ -11,6 +11,21 @@ Aquí puedes ir anotando los cambios que estás haciendo y que aún no has lanza
 
 ---
 
+## [1.0.5] - 2026-05-21
+
+### Añadido (Added)
+- Nuevo modo de Blending Multicapa para combinar dos o más imágenes.
+- Gestión de capas con carga múltiple, eliminación, reordenamiento, miniaturas y selección de capa activa.
+- Modos de mezcla Alpha, Sumativo y Multiplicativo con control individual de opacidad.
+- Guardado del resultado combinado como imagen PNG.
+
+### Cambiado (Changed)
+- Versión del proyecto actualizada a `1.0.5`.
+- Editor avanzado integrado como panel dentro de la ventana principal para alternar entre modos sin abrir ventanas separadas.
+- Navegación de la ventana principal actualizada para volver al modo simple desde editores integrados.
+
+---
+
 ## [1.0.4] - 2026-05-19
 
 ### Añadido (Added)
