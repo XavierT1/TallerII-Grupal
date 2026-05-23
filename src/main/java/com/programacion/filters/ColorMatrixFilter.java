@@ -130,4 +130,49 @@ public class ColorMatrixFilter implements ImageFilter {
             0f, 0f, 0f, 1f, 0f
         };
     }
+
+    public static float[] getDeuteranopia() {
+        return new float[]{
+            0.625f, 0.375f, 0f,     0f, 0f,
+            0.700f, 0.300f, 0f,     0f, 0f,
+            0f,     0.300f, 0.700f, 0f, 0f,
+            0f,     0f,     0f,     1f, 0f
+        };
+    }
+
+    public static float[] getProtanopia() {
+        return new float[]{
+            0.567f, 0.433f, 0f,     0f, 0f,
+            0.558f, 0.442f, 0f,     0f, 0f,
+            0f,     0.242f, 0.758f, 0f, 0f,
+            0f,     0f,     0f,     1f, 0f
+        };
+    }
+
+    public static float[] getTechnicolor() {
+        return new float[]{
+            1.5f,  -0.5f,  0f,   0f, 0f,
+           -0.5f,   1.5f,  0f,   0f, 0f,
+           -0.5f,   0f,    1.5f, 0f, 0f,
+            0f,     0f,    0f,   1f, 0f
+        };
+    }
+
+    public static float[] getNightVision() {
+        return new float[]{
+            0f,     0f,     0f,     0f, 0f,
+            0.299f, 0.587f, 0.114f, 0f, 0f,
+            0f,     0f,     0f,     0f, 0f,
+            0f,     0f,     0f,     1f, 0f
+        };
+    }
+
+    public static float[] getPsychedelic() {
+        return new float[]{
+            0f, 1f, 0f, 0f, 0f,
+            0f, 0f, 1f, 0f, 0f,
+            1f, 0f, 0f, 0f, 0f,
+            0f, 0f, 0f, 1f, 0f
+        };
+    }
 }
