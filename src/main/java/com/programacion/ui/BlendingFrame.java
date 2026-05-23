@@ -21,15 +21,18 @@ public class BlendingFrame extends JPanel {
     private ImagePreviewPanel previewPanel = new ImagePreviewPanel();
     private JPanel placeholderPanel;
     private JScrollPane scrollMain;
+    private JLayeredPane layeredPane;
+    private HistogramPanel miniHistogramPanel;
 
     private DefaultListModel<BlendLayer> modeloCapas = new DefaultListModel<>();
     private JList<BlendLayer> listCapas = new JList<>(modeloCapas);
 
-    private JButton btnVolver, btnGuardar, btnLimpiar, btnTema;
+    private JButton btnVolver, btnGuardar, btnLimpiar, btnTema, btnExportar;
     private JButton btnAgregar, btnEliminar, btnSubir, btnBajar;
 
     private JPanel panelAjustes;
     private JLabel lblCapaActiva;
+    private JCheckBox chckVisible;
     private JComboBox<BlendMode> comboModo;
     private JSlider sliderOpacidad;
 
@@ -53,21 +56,38 @@ public class BlendingFrame extends JPanel {
     private void initToolbar() {
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
-        toolBar.setMargin(new Insets(5, 10, 5, 10));
+        toolBar.setMargin(new Insets(6, 12, 6, 12));
 
-        btnVolver = new JButton("Volver al Editor Simple");
+        // Branding
+        JLabel lblLogo = new JLabel("✨ LuminaFX | Mezclador");
+        lblLogo.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblLogo.setForeground(new Color(99, 102, 241));
+        toolBar.add(lblLogo);
+        toolBar.add(Box.createRigidArea(new Dimension(15, 0)));
+
+        btnVolver = new JButton("Volver");
+        btnVolver.putClientProperty("JButton.buttonType", "toolBarButton");
         btnVolver.addActionListener(e -> volverAlPrincipal());
 
-        btnGuardar = new JButton("Guardar Resultado");
+        btnExportar = new JButton("Exportar al Editor");
+        btnExportar.putClientProperty("JButton.buttonType", "toolBarButton");
+        btnExportar.addActionListener(e -> accionExportarLienzo());
+
+        btnGuardar = new JButton("Guardar");
+        btnGuardar.putClientProperty("JButton.buttonType", "toolBarButton");
         btnGuardar.addActionListener(e -> accionGuardar());
 
         btnLimpiar = new JButton("Limpiar Todo");
+        btnLimpiar.putClientProperty("JButton.buttonType", "toolBarButton");
         btnLimpiar.addActionListener(e -> accionLimpiarTodo());
 
-        btnTema = new JButton("Tema");
+        btnTema = new JButton();
+        btnTema.putClientProperty("JButton.buttonType", "toolBarButton");
         btnTema.addActionListener(e -> accionCambiarTema());
 
         toolBar.add(btnVolver);
+        toolBar.addSeparator();
+        toolBar.add(btnExportar);
         toolBar.addSeparator();
         toolBar.add(btnGuardar);
         toolBar.addSeparator();
@@ -79,43 +99,39 @@ public class BlendingFrame extends JPanel {
     }
 
     private void updateIcons() {
-        btnGuardar.setIcon(loadIcon("/assets/icons/save.png", 20));
-        btnTema.setIcon(loadIcon("/assets/icons/theme.png", 20));
-        ImageIcon clearIcon = loadIcon("/assets/icons/delete.png", 20);
-        if (clearIcon != null) btnLimpiar.setIcon(clearIcon);
+        btnGuardar.setIcon(new ModernIcon("guardar", 16));
+        btnTema.setIcon(new ModernIcon("tema", 16));
+        btnLimpiar.setIcon(new ModernIcon("limpiar", 16));
+        btnVolver.setIcon(new ModernIcon("volver", 16));
+        if (btnExportar != null) {
+            btnExportar.setIcon(new ModernIcon("avanzado", 16));
+        }
     }
 
     private ImageIcon loadIcon(String path, int size) {
-        try {
-            java.net.URL imgUrl = getClass().getResource(path);
-            if (imgUrl == null) return null;
-            BufferedImage img = ImageIO.read(imgUrl);
-            if (!isDarkMode) img = invertImageColors(img);
-            Image resized = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
-            return new ImageIcon(resized);
-        } catch (Exception e) { return null; }
+        return null;
     }
 
     private BufferedImage invertImageColors(BufferedImage image) {
-        int w = image.getWidth(), h = image.getHeight();
-        BufferedImage res = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int p = image.getRGB(x, y);
-                Color c = new Color(p, true);
-                res.setRGB(x, y, new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha()).getRGB());
-            }
-        }
-        return res;
+        return null;
     }
 
     private void initWorkspace() {
-        // Inicializar el placeholder panel para cuando no hay imágenes
+        // Inicializar el placeholder panel con una tarjeta estética
         placeholderPanel = new JPanel(new GridBagLayout());
         placeholderPanel.setBackground(UIManager.getColor("Panel.background"));
 
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+            BorderFactory.createEmptyBorder(25, 25, 25, 25)
+        ));
+        card.setBackground(UIManager.getColor("Menu.background"));
+        card.setMaximumSize(new Dimension(500, 320));
+
         JLabel lblPlaceholder = new JLabel(
-            "<html><center><font size='12'>🥞</font><br><br>" +
+            "<html><center><font size='16'>🥞</font><br><br>" +
             "<font size='5'><b>Blending Multicapa</b></font><br><br>" +
             "Añada dos o más imágenes en el panel derecho para comenzar a realizar mezclas.<br>" +
             "Las capas superiores se adaptarán a la resolución de la capa base (la más inferior).<br>" +
@@ -123,18 +139,46 @@ public class BlendingFrame extends JPanel {
         );
         lblPlaceholder.setHorizontalAlignment(SwingConstants.CENTER);
         lblPlaceholder.setForeground(UIManager.getColor("Label.disabledForeground"));
-        placeholderPanel.add(lblPlaceholder);
+        card.add(lblPlaceholder);
+
+        placeholderPanel.add(card);
 
         scrollMain = new JScrollPane(placeholderPanel);
         scrollMain.setBorder(BorderFactory.createEmptyBorder());
 
-        add(scrollMain, BorderLayout.CENTER);
+        // Inicializar el histograma miniatura y el LayeredPane
+        miniHistogramPanel = new HistogramPanel();
+        miniHistogramPanel.setOverlay(true);
+        miniHistogramPanel.setMode(HistogramPanel.Mode.RGB);
+        miniHistogramPanel.setVisible(false);
+
+        layeredPane = new JLayeredPane();
+        layeredPane.add(scrollMain, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(miniHistogramPanel, JLayeredPane.PALETTE_LAYER);
+
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int w = layeredPane.getWidth();
+                int h = layeredPane.getHeight();
+                scrollMain.setBounds(0, 0, w, h);
+                int hw = 220;
+                int hh = 150;
+                miniHistogramPanel.setBounds(w - hw - 20, h - hh - 20, hw, hh);
+            }
+        });
+
+        add(layeredPane, BorderLayout.CENTER);
     }
 
     private void initRightSidebar() {
+        JPanel sidebarWrapper = new JPanel(new BorderLayout());
+        sidebarWrapper.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, UIManager.getColor("Component.borderColor")));
+        sidebarWrapper.setPreferredSize(new Dimension(300, 0));
+
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
         // Título de la sección de capas
         sidebar.add(crearEncabezado("CAPAS DE IMÁGENES", false));
@@ -149,23 +193,34 @@ public class BlendingFrame extends JPanel {
         });
 
         JScrollPane scrollCapas = new JScrollPane(listCapas);
-        scrollCapas.setPreferredSize(new Dimension(250, 200));
-        scrollCapas.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+        scrollCapas.setPreferredSize(new Dimension(250, 180));
+        scrollCapas.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
         scrollCapas.setBorder(BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")));
         sidebar.add(scrollCapas);
         sidebar.add(Box.createRigidArea(new Dimension(0, 10)));
 
         // Botones de acción para las capas
-        JPanel panelBotonesCapas = new JPanel(new GridLayout(2, 2, 5, 5));
-        panelBotonesCapas.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        JPanel panelBotonesCapas = new JPanel(new GridLayout(2, 2, 6, 6));
+        panelBotonesCapas.setMaximumSize(new Dimension(Integer.MAX_VALUE, 75));
 
-        btnAgregar = new JButton("Añadir...");
+        btnAgregar = new JButton("Añadir");
+        btnAgregar.putClientProperty("JButton.buttonType", "roundRect");
+        btnAgregar.setIcon(new ModernIcon("agregar", 12));
         btnAgregar.addActionListener(e -> accionAñadirCapa());
+
         btnEliminar = new JButton("Eliminar");
+        btnEliminar.putClientProperty("JButton.buttonType", "roundRect");
+        btnEliminar.setIcon(new ModernIcon("eliminar", 12));
         btnEliminar.addActionListener(e -> accionEliminarCapa());
-        btnSubir = new JButton("Subir [↑]");
+
+        btnSubir = new JButton("Subir");
+        btnSubir.putClientProperty("JButton.buttonType", "roundRect");
+        btnSubir.setIcon(new ModernIcon("subir", 12));
         btnSubir.addActionListener(e -> accionSubirCapa());
-        btnBajar = new JButton("Bajar [↓]");
+
+        btnBajar = new JButton("Bajar");
+        btnBajar.putClientProperty("JButton.buttonType", "roundRect");
+        btnBajar.setIcon(new ModernIcon("bajar", 12));
         btnBajar.addActionListener(e -> accionBajarCapa());
 
         panelBotonesCapas.add(btnAgregar);
@@ -185,6 +240,21 @@ public class BlendingFrame extends JPanel {
         lblCapaActiva.setFont(lblCapaActiva.getFont().deriveFont(Font.BOLD, 12f));
         lblCapaActiva.setAlignmentX(Component.LEFT_ALIGNMENT);
         panelAjustes.add(lblCapaActiva);
+        panelAjustes.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        chckVisible = new JCheckBox("Capa Visible");
+        chckVisible.setAlignmentX(Component.LEFT_ALIGNMENT);
+        chckVisible.addActionListener(e -> {
+            if (updatingSelection) return;
+            int idx = listCapas.getSelectedIndex();
+            if (idx >= 0) {
+                BlendLayer layer = modeloCapas.getElementAt(idx);
+                layer.setVisible(chckVisible.isSelected());
+                listCapas.repaint();
+                triggerBlending();
+            }
+        });
+        panelAjustes.add(chckVisible);
         panelAjustes.add(Box.createRigidArea(new Dimension(0, 10)));
 
         // Dropdown de Modo de Blend
@@ -234,22 +304,20 @@ public class BlendingFrame extends JPanel {
 
         sidebar.add(Box.createVerticalGlue());
 
-        JScrollPane scrollSidebar = new JScrollPane(sidebar);
-        scrollSidebar.setPreferredSize(new Dimension(280, 0));
-        scrollSidebar.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, UIManager.getColor("Component.borderColor")));
-        add(scrollSidebar, BorderLayout.EAST);
+        sidebarWrapper.add(sidebar, BorderLayout.CENTER);
+        add(sidebarWrapper, BorderLayout.EAST);
     }
 
     private JPanel crearEncabezado(String titulo, boolean conMargenTop) {
         JPanel panel = new JPanel(new BorderLayout());
         JLabel lbl = new JLabel(titulo);
-        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 10f));
         lbl.setForeground(UIManager.getColor("Label.disabledForeground"));
         panel.add(lbl, BorderLayout.WEST);
         panel.add(new JSeparator(), BorderLayout.SOUTH);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
         panel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        int top = conMargenTop ? 20 : 0;
+        int top = conMargenTop ? 18 : 0;
         panel.setBorder(BorderFactory.createEmptyBorder(top, 0, 8, 0));
         return panel;
     }
@@ -259,10 +327,17 @@ public class BlendingFrame extends JPanel {
             scrollMain.setViewportView(placeholderPanel);
             btnGuardar.setEnabled(false);
             btnLimpiar.setEnabled(false);
+            if (btnExportar != null) btnExportar.setEnabled(false);
+            if (miniHistogramPanel != null) miniHistogramPanel.setVisible(false);
         } else {
             scrollMain.setViewportView(previewPanel);
             btnGuardar.setEnabled(true);
             btnLimpiar.setEnabled(true);
+            if (btnExportar != null) btnExportar.setEnabled(true);
+            if (miniHistogramPanel != null && previewPanel.getImage() != null) {
+                miniHistogramPanel.setImage(previewPanel.getImage());
+                miniHistogramPanel.setVisible(true);
+            }
         }
         revalidate();
         repaint();
@@ -276,6 +351,7 @@ public class BlendingFrame extends JPanel {
             
             lblCapaActiva.setText("Capa: " + getTruncatedName(layer.getName(), 22));
             lblCapaActiva.setToolTipText(layer.getName());
+            chckVisible.setSelected(layer.isVisible());
             comboModo.setSelectedItem(layer.getBlendMode());
             sliderOpacidad.setValue((int) (layer.getOpacity() * 100));
 
@@ -412,12 +488,25 @@ public class BlendingFrame extends JPanel {
     private BufferedImage performBlending() {
         int size = modeloCapas.getSize();
         if (size == 0) return null;
-        if (size == 1) {
-            return modeloCapas.getElementAt(0).getOriginalImage();
+
+        // Encontrar la capa visible más inferior que sirva de base
+        int baseIdx = size - 1;
+        while (baseIdx >= 0 && !modeloCapas.getElementAt(baseIdx).isVisible()) {
+            baseIdx--;
         }
 
-        // La última capa de la lista es la capa Base (Fondo)
-        BlendLayer baseLayer = modeloCapas.getElementAt(size - 1);
+        if (baseIdx < 0) {
+            // Ninguna capa es visible
+            return null;
+        }
+
+        if (size == 1) {
+            BlendLayer single = modeloCapas.getElementAt(0);
+            return single.isVisible() ? single.getOriginalImage() : null;
+        }
+
+        // La capa visible más baja sirve de base
+        BlendLayer baseLayer = modeloCapas.getElementAt(baseIdx);
         BufferedImage baseImg = baseLayer.getOriginalImage();
         int w = baseImg.getWidth();
         int h = baseImg.getHeight();
@@ -427,10 +516,12 @@ public class BlendingFrame extends JPanel {
         graphics.drawImage(baseImg, 0, 0, null);
         graphics.dispose();
 
-        // Procesar las capas superiores de abajo hacia arriba (desde size - 2 hasta 0)
-        for (int i = size - 2; i >= 0; i--) {
+        // Procesar las capas superiores visibles de abajo hacia arriba (desde baseIdx - 1 hasta 0)
+        for (int i = baseIdx - 1; i >= 0; i--) {
             if (Thread.currentThread().isInterrupted()) return null;
             BlendLayer layer = modeloCapas.getElementAt(i);
+            if (!layer.isVisible()) continue;
+
             BufferedImage layerImg = layer.getScaledImage(w, h);
 
             float opacity = layer.getOpacity();
@@ -467,6 +558,26 @@ public class BlendingFrame extends JPanel {
                     r_blend = (r1 * r2) / 255;
                     g_blend = (g1 * g2) / 255;
                     b_blend = (b1 * b2) / 255;
+                } else if (mode == BlendMode.SCREEN) {
+                    r_blend = 255 - ((255 - r1) * (255 - r2)) / 255;
+                    g_blend = 255 - ((255 - g1) * (255 - g2)) / 255;
+                    b_blend = 255 - ((255 - b1) * (255 - b2)) / 255;
+                } else if (mode == BlendMode.DARKEN) {
+                    r_blend = Math.min(r1, r2);
+                    g_blend = Math.min(g1, g2);
+                    b_blend = Math.min(b1, b2);
+                } else if (mode == BlendMode.LIGHTEN) {
+                    r_blend = Math.max(r1, r2);
+                    g_blend = Math.max(g1, g2);
+                    b_blend = Math.max(b1, b2);
+                } else if (mode == BlendMode.DIFFERENCE) {
+                    r_blend = Math.abs(r1 - r2);
+                    g_blend = Math.abs(g1 - g2);
+                    b_blend = Math.abs(b1 - b2);
+                } else if (mode == BlendMode.OVERLAY) {
+                    r_blend = r1 < 128 ? (2 * r1 * r2) / 255 : 255 - 2 * (255 - r1) * (255 - r2) / 255;
+                    g_blend = g1 < 128 ? (2 * g1 * g2) / 255 : 255 - 2 * (255 - g1) * (255 - g2) / 255;
+                    b_blend = b1 < 128 ? (2 * b1 * b2) / 255 : 255 - 2 * (255 - b1) * (255 - b2) / 255;
                 }
 
                 // Interpolación basada en opacidad de la capa
@@ -499,6 +610,24 @@ public class BlendingFrame extends JPanel {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error al guardar la imagen.");
             }
+        }
+    }
+
+    private void accionExportarLienzo() {
+        BufferedImage img = previewPanel.getImage();
+        if (img == null) {
+            JOptionPane.showMessageDialog(this, "No hay ninguna mezcla para exportar.");
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "¿Desea exportar esta mezcla al editor principal?",
+            "Exportar Mezcla", JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            parentFrame.setWorkspaceImage(img);
+            volverAlPrincipal();
+            JOptionPane.showMessageDialog(parentFrame, "Imagen exportada exitosamente al editor principal.");
         }
     }
 
@@ -566,9 +695,14 @@ public class BlendingFrame extends JPanel {
     // --- ENUMS & CLASES AUXILIARES ---
 
     public enum BlendMode {
-        ALPHA("Alpha Blending"),
-        SUMATIVE("Sumativo"),
-        MULTIPLICATIVE("Multiplicativo");
+        ALPHA("Normal (Alpha)"),
+        SUMATIVE("Sumativo / Adición"),
+        MULTIPLICATIVE("Multiplicativo"),
+        SCREEN("Pantalla / Trama"),
+        DARKEN("Oscurecer"),
+        LIGHTEN("Aclarar"),
+        DIFFERENCE("Diferencia"),
+        OVERLAY("Superponer");
 
         private final String displayName;
         BlendMode(String displayName) { this.displayName = displayName; }
@@ -583,6 +717,7 @@ public class BlendingFrame extends JPanel {
         private String name;
         private BlendMode blendMode = BlendMode.ALPHA;
         private float opacity = 0.5f;
+        private boolean visible = true;
 
         public BlendLayer(BufferedImage img, File file) {
             this.originalImage = img;
@@ -604,6 +739,8 @@ public class BlendingFrame extends JPanel {
         public void setBlendMode(BlendMode blendMode) { this.blendMode = blendMode; }
         public float getOpacity() { return opacity; }
         public void setOpacity(float opacity) { this.opacity = opacity; }
+        public boolean isVisible() { return visible; }
+        public void setVisible(boolean visible) { this.visible = visible; }
 
         public BufferedImage getScaledImage(int w, int h) {
             if (scaledImage != null && scaledImage.getWidth() == w && scaledImage.getHeight() == h) {
@@ -661,15 +798,28 @@ public class BlendingFrame extends JPanel {
             panel.add(lblIcon, BorderLayout.WEST);
             panel.add(textPanel, BorderLayout.CENTER);
 
-            // Ajuste de colores según selección
+            // Ajuste de colores según selección y visibilidad
+            if (!layer.isVisible()) {
+                lblName.setForeground(UIManager.getColor("Label.disabledForeground"));
+                lblInfo.setText("[Oculta] " + lblInfo.getText());
+                lblInfo.setForeground(UIManager.getColor("Label.disabledForeground"));
+                lblIcon.setEnabled(false);
+            } else {
+                lblIcon.setEnabled(true);
+            }
+
             if (isSelected) {
                 panel.setBackground(list.getSelectionBackground());
-                lblName.setForeground(list.getSelectionForeground());
-                lblInfo.setForeground(list.getSelectionForeground());
+                if (layer.isVisible()) {
+                    lblName.setForeground(list.getSelectionForeground());
+                    lblInfo.setForeground(list.getSelectionForeground());
+                }
             } else {
                 panel.setBackground(list.getBackground());
-                lblName.setForeground(list.getForeground());
-                lblInfo.setForeground(UIManager.getColor("Label.disabledForeground"));
+                if (layer.isVisible()) {
+                    lblName.setForeground(list.getForeground());
+                    lblInfo.setForeground(UIManager.getColor("Label.disabledForeground"));
+                }
             }
 
             return panel;
