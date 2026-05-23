@@ -195,8 +195,16 @@ public class MainFrame extends JFrame {
 
         tabFiltros.add(crearEncabezado("ENFOQUE Y DESENFOQUE", true));
         ImageFilter[] convoluciones = {
-            ConvolutionFilter.Enfoque(), ConvolutionFilter.Desenfoque(), ConvolutionFilter.DesenfoquePesado(),
-            ConvolutionFilter.Bordes(), ConvolutionFilter.Aclarar(), ConvolutionFilter.Oscurecer()
+            ConvolutionFilter.Enfoque(),
+            ConvolutionFilter.Desenfoque(),
+            ConvolutionFilter.GaussianBlur3x3(),
+            ConvolutionFilter.DesenfoquePesado(),
+            ConvolutionFilter.Bordes(),
+            ConvolutionFilter.BordesDiagonal(),
+            ConvolutionFilter.BordesLaplaciano4(),
+            ConvolutionFilter.BordesLaplaciano8(),
+            ConvolutionFilter.Aclarar(),
+            ConvolutionFilter.Oscurecer()
         };
         JComboBox<String> comboConvolucion = new JComboBox<>();
         comboConvolucion.addItem("Seleccionar...");
@@ -678,14 +686,18 @@ public class MainFrame extends JFrame {
             ImageFilter[] convs = {
                     ConvolutionFilter.Enfoque(),
                     ConvolutionFilter.Desenfoque(),
+                    ConvolutionFilter.GaussianBlur3x3(),
                     ConvolutionFilter.DesenfoquePesado(),
                     ConvolutionFilter.Bordes(),
+                    ConvolutionFilter.BordesDiagonal(),
+                    ConvolutionFilter.BordesLaplaciano4(),
+                    ConvolutionFilter.BordesLaplaciano8(),
                     ConvolutionFilter.Aclarar(),
                     ConvolutionFilter.Oscurecer()
             };
 
             JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-            panelGrid.setPreferredSize(new Dimension(900, 1500));
+            panelGrid.setPreferredSize(new Dimension(900, 2400));
 
             for (ImageFilter f : convs) {
                 BufferedImage imgResult = f.apply(originalImage);
