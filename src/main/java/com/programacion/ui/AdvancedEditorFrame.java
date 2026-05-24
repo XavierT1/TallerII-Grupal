@@ -209,8 +209,16 @@ public class AdvancedEditorFrame extends JPanel {
 
         tabFiltros.add(crearEncabezado("ENFOQUE Y DESENFOQUE", true));
         ImageFilter[] convoluciones = {
-            ConvolutionFilter.Enfoque(), ConvolutionFilter.Desenfoque(), ConvolutionFilter.DesenfoquePesado(),
-            ConvolutionFilter.Bordes(), ConvolutionFilter.Aclarar(), ConvolutionFilter.Oscurecer()
+            ConvolutionFilter.Enfoque(),
+            ConvolutionFilter.Desenfoque(),
+            ConvolutionFilter.GaussianBlur3x3(),
+            ConvolutionFilter.DesenfoquePesado(),
+            ConvolutionFilter.Bordes(),
+            ConvolutionFilter.BordesDiagonal(),
+            ConvolutionFilter.BordesLaplaciano4(),
+            ConvolutionFilter.BordesLaplaciano8(),
+            ConvolutionFilter.Aclarar(),
+            ConvolutionFilter.Oscurecer()
         };
         JComboBox<String> comboConvolucion = new JComboBox<>();
         comboConvolucion.addItem("Seleccionar...");
