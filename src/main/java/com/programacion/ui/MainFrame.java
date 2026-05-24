@@ -1008,7 +1008,7 @@ public class MainFrame extends JFrame {
         ventanaMatrices = new JDialog(this, "Matrices de Color", false);
         ventanaMatrices.setLayout(new BorderLayout());
 
-        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío"};
+        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío", "Deuteranopía (Daltonismo)", "Protanopía (Daltonismo)", "Technicolor", "Visión Nocturna", "Psicodélico (Swap RGB)"};
         JComboBox<String> comboPresets = new JComboBox<>(presets);
         comboPresets.setBorder(BorderFactory.createTitledBorder("Seleccionar Preset"));
 
@@ -1056,6 +1056,11 @@ public class MainFrame extends JFrame {
                 case 5 -> selectedMat = ColorMatrixFilter.getInvert();
                 case 6 -> selectedMat = ColorMatrixFilter.getWarm();
                 case 7 -> selectedMat = ColorMatrixFilter.getCool();
+                case 8 -> selectedMat = ColorMatrixFilter.getDeuteranopia();
+                case 9 -> selectedMat = ColorMatrixFilter.getProtanopia();
+                case 10 -> selectedMat = ColorMatrixFilter.getTechnicolor();
+                case 11 -> selectedMat = ColorMatrixFilter.getNightVision();
+                case 12 -> selectedMat = ColorMatrixFilter.getPsychedelic();
                 default -> selectedMat = ColorMatrixFilter.getNeutral();
             }
 
