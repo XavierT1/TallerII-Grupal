@@ -90,4 +90,36 @@ public class ConvolutionFilter implements ImageFilter {
             0.01f, 0.01f, 0.01f
         });
     }
+
+    public static ConvolutionFilter GaussianBlur3x3() {
+        return new ConvolutionFilter("Desenfoque Gaussiano 3x3", new float[]{
+            0.0625f, 0.125f,  0.0625f,
+            0.125f,  0.25f,   0.125f,
+            0.0625f, 0.125f,  0.0625f
+        });
+    }
+
+    public static ConvolutionFilter BordesDiagonal() {
+        return new ConvolutionFilter("Bordes (Diagonal)", new float[]{
+            1f,  0f, -1f,
+            0f,  0f,  0f,
+           -1f,  0f,  1f
+        });
+    }
+
+    public static ConvolutionFilter BordesLaplaciano4() {
+        return new ConvolutionFilter("Bordes (Laplaciano 4-C)", new float[]{
+            0f,  1f,  0f,
+            1f, -4f,  1f,
+            0f,  1f,  0f
+        });
+    }
+
+    public static ConvolutionFilter BordesLaplaciano8() {
+        return new ConvolutionFilter("Bordes (Laplaciano 8-C)", new float[]{
+           -1f, -1f, -1f,
+           -1f,  8f, -1f,
+           -1f, -1f, -1f
+        });
+    }
 }

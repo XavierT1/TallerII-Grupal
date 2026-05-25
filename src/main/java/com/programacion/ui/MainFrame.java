@@ -195,8 +195,16 @@ public class MainFrame extends JFrame {
 
         tabFiltros.add(crearEncabezado("ENFOQUE Y DESENFOQUE", true));
         ImageFilter[] convoluciones = {
-            ConvolutionFilter.Enfoque(), ConvolutionFilter.Desenfoque(), ConvolutionFilter.DesenfoquePesado(),
-            ConvolutionFilter.Bordes(), ConvolutionFilter.Aclarar(), ConvolutionFilter.Oscurecer()
+            ConvolutionFilter.Enfoque(),
+            ConvolutionFilter.Desenfoque(),
+            ConvolutionFilter.GaussianBlur3x3(),
+            ConvolutionFilter.DesenfoquePesado(),
+            ConvolutionFilter.Bordes(),
+            ConvolutionFilter.BordesDiagonal(),
+            ConvolutionFilter.BordesLaplaciano4(),
+            ConvolutionFilter.BordesLaplaciano8(),
+            ConvolutionFilter.Aclarar(),
+            ConvolutionFilter.Oscurecer()
         };
         JComboBox<String> comboConvolucion = new JComboBox<>();
         comboConvolucion.addItem("Seleccionar...");
@@ -678,14 +686,18 @@ public class MainFrame extends JFrame {
             ImageFilter[] convs = {
                     ConvolutionFilter.Enfoque(),
                     ConvolutionFilter.Desenfoque(),
+                    ConvolutionFilter.GaussianBlur3x3(),
                     ConvolutionFilter.DesenfoquePesado(),
                     ConvolutionFilter.Bordes(),
+                    ConvolutionFilter.BordesDiagonal(),
+                    ConvolutionFilter.BordesLaplaciano4(),
+                    ConvolutionFilter.BordesLaplaciano8(),
                     ConvolutionFilter.Aclarar(),
                     ConvolutionFilter.Oscurecer()
             };
 
             JPanel panelGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-            panelGrid.setPreferredSize(new Dimension(900, 1500));
+            panelGrid.setPreferredSize(new Dimension(900, 2400));
 
             for (ImageFilter f : convs) {
                 BufferedImage imgResult = f.apply(originalImage);
@@ -996,7 +1008,7 @@ public class MainFrame extends JFrame {
         ventanaMatrices = new JDialog(this, "Matrices de Color", false);
         ventanaMatrices.setLayout(new BorderLayout());
 
-        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío"};
+        String[] presets = {"Neutro", "Sepia", "Vintage", "Polaroid", "Escala de Grises", "Invertir Colores", "Cálido", "Frío", "Deuteranopía (Daltonismo)", "Protanopía (Daltonismo)", "Technicolor", "Visión Nocturna", "Psicodélico (Swap RGB)"};
         JComboBox<String> comboPresets = new JComboBox<>(presets);
         comboPresets.setBorder(BorderFactory.createTitledBorder("Seleccionar Preset"));
 
@@ -1044,6 +1056,11 @@ public class MainFrame extends JFrame {
                 case 5 -> selectedMat = ColorMatrixFilter.getInvert();
                 case 6 -> selectedMat = ColorMatrixFilter.getWarm();
                 case 7 -> selectedMat = ColorMatrixFilter.getCool();
+                case 8 -> selectedMat = ColorMatrixFilter.getDeuteranopia();
+                case 9 -> selectedMat = ColorMatrixFilter.getProtanopia();
+                case 10 -> selectedMat = ColorMatrixFilter.getTechnicolor();
+                case 11 -> selectedMat = ColorMatrixFilter.getNightVision();
+                case 12 -> selectedMat = ColorMatrixFilter.getPsychedelic();
                 default -> selectedMat = ColorMatrixFilter.getNeutral();
             }
 
