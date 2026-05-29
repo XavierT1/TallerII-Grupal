@@ -11,6 +11,22 @@ Aquí puedes ir anotando los cambios que estás haciendo y que aún no has lanza
 
 ---
 
+## [1.0.6] - 2026-05-28
+
+### Añadido (Added)
+- Nuevos presets de matrices de color para daltonismo, technicolor y visión nocturna.
+- Nuevas convoluciones, incluyendo desenfoque gaussiano y detectores de bordes.
+- Iconografía moderna reutilizable para la interfaz de LuminaFX.
+- Documentación técnica y guía del proyecto incluidas en el repositorio.
+
+### Cambiado (Changed)
+- Versión del proyecto actualizada a `1.0.6`.
+- Mejora visual general de la interfaz principal, editor avanzado y flujo de Blending Multicapa.
+- Blending Multicapa ampliado con visibilidad por capa, exportación al editor principal, histograma y nuevos modos de mezcla.
+- Organización de herramientas en pestañas para mejorar la navegación y la experiencia de usuario.
+
+---
+
 ## [1.0.5] - 2026-05-21
 
 ### Añadido (Added)
