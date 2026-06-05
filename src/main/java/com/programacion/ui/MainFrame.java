@@ -37,7 +37,7 @@ public class MainFrame extends JFrame {
     private int ultimoSatHSV = 0;
     private int ultimoValHSV = 0;
 
-    private JButton btnCargar, btnLimpiar, btnGuardar, btnTema, btnVerOriginal, btnModoApilado, btnBlendingMulticapa;
+    private JButton btnCargar, btnLimpiar, btnGuardar, btnTema, btnVerOriginal, btnModoApilado, btnBlendingMulticapa, btnRasterizer;
 
     public MainFrame() {
         setTitle("LuminaFX - Editor de Imágenes");
@@ -110,6 +110,10 @@ public class MainFrame extends JFrame {
         btnBlendingMulticapa.putClientProperty("JButton.buttonType", "toolBarButton");
         btnBlendingMulticapa.addActionListener(e -> abrirMezcladorBlending());
 
+        btnRasterizer = new JButton("Render 3D");
+        btnRasterizer.putClientProperty("JButton.buttonType", "toolBarButton");
+        btnRasterizer.addActionListener(e -> abrirRasterizador());
+
         btnTema = new JButton();
         btnTema.putClientProperty("JButton.buttonType", "toolBarButton");
         btnTema.addActionListener(e -> accionCambiarTema());
@@ -125,6 +129,8 @@ public class MainFrame extends JFrame {
         toolBar.add(btnModoApilado);
         toolBar.addSeparator();
         toolBar.add(btnBlendingMulticapa);
+        toolBar.addSeparator();
+        toolBar.add(btnRasterizer);
         toolBar.add(Box.createHorizontalGlue());
         toolBar.add(btnTema);
 
@@ -139,6 +145,7 @@ public class MainFrame extends JFrame {
         btnLimpiar.setIcon(new ModernIcon("limpiar", 16));
         btnModoApilado.setIcon(new ModernIcon("avanzado", 16));
         btnBlendingMulticapa.setIcon(new ModernIcon("blending", 16));
+        btnRasterizer.setIcon(new ModernIcon("render3d", 16));
     }
 
     // --- WORKSPACE UNIFICADO ---
@@ -815,6 +822,18 @@ public class MainFrame extends JFrame {
         BlendingFrame blendingPanel = new BlendingFrame(this, isDarkMode);
         setContentPane(blendingPanel);
         setTitle("Mezclador Blending Multicapa");
+        revalidate();
+        repaint();
+    }
+
+    private void abrirRasterizador() {
+        cerrarVentanasFlotantes();
+        if (simpleModeContentPane == null) {
+            simpleModeContentPane = getContentPane();
+        }
+        RasterizerFrame rasterizerPanel = new RasterizerFrame(this, isDarkMode);
+        setContentPane(rasterizerPanel);
+        setTitle("LuminaFX - Renderizado por Software 3D");
         revalidate();
         repaint();
     }
