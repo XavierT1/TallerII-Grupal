@@ -9,6 +9,9 @@ import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,15 +56,24 @@ public class RasterizerFrame extends JPanel {
 
     // Componentes Swing
     private JComboBox<String> comboFiguras, comboModo, comboSombreado, comboLineaAlgo, comboBgColor, comboLineColor;
+    private JComboBox<String> comboTexturas, comboBufferAlgo;
     private JSlider sliderSpeedX, sliderSpeedY, sliderSpeedZ, sliderZoom, sliderFov;
     private JCheckBox checkZBuffer;
     private JButton btnPlayPause;
+
+    // Texturas
+    private BufferedImage textureCheckerboard;
+    private BufferedImage textureUVGrid;
+    private BufferedImage customTexture;
 
     public RasterizerFrame(MainFrame parentFrame, boolean isDarkMode) {
         this.parentFrame = parentFrame;
         this.rasterizer = new SoftwareRasterizer();
 
         setLayout(new BorderLayout());
+
+        // Inicializar texturas procedimentales
+        initTextures();
 
         // Inicializar figuras geométricas
         initShapes();
@@ -107,26 +119,26 @@ public class RasterizerFrame extends JPanel {
                 new Vertex3D(-0.8,  0.8,  0.8, 0xFF8E8E93)  // Gris
         };
 
-        // Caras en sentido horario/antihorario divididas en triángulos
+        // Caras en sentido horario/antihorario divididas en triángulos con coordenadas UV
         cubeFaces = new Face3D[]{
                 // Frontal (z = -0.8)
-                new Face3D(new int[]{0, 2, 1}, 0xFFFF3B30),
-                new Face3D(new int[]{0, 3, 2}, 0xFFFF3B30),
+                new Face3D(new int[]{0, 2, 1}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 1.0, 0.0}, 0xFFFF3B30),
+                new Face3D(new int[]{0, 3, 2}, new double[]{0.0, 0.0, 1.0}, new double[]{0.0, 1.0, 1.0}, 0xFFFF3B30),
                 // Trasera (z = 0.8)
-                new Face3D(new int[]{5, 6, 4}, 0xFF34C759),
-                new Face3D(new int[]{6, 7, 4}, 0xFF34C759),
+                new Face3D(new int[]{5, 6, 4}, new double[]{1.0, 1.0, 0.0}, new double[]{0.0, 1.0, 0.0}, 0xFF34C759),
+                new Face3D(new int[]{6, 7, 4}, new double[]{1.0, 0.0, 0.0}, new double[]{1.0, 1.0, 0.0}, 0xFF34C759),
                 // Superior (y = 0.8)
-                new Face3D(new int[]{3, 6, 2}, 0xFF007AFF),
-                new Face3D(new int[]{3, 7, 6}, 0xFF007AFF),
+                new Face3D(new int[]{3, 6, 2}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 1.0, 0.0}, 0xFF007AFF),
+                new Face3D(new int[]{3, 7, 6}, new double[]{0.0, 0.0, 1.0}, new double[]{0.0, 1.0, 1.0}, 0xFF007AFF),
                 // Inferior (y = -0.8)
-                new Face3D(new int[]{4, 1, 0}, 0xFFFFCC00),
-                new Face3D(new int[]{4, 5, 1}, 0xFFFFCC00),
+                new Face3D(new int[]{4, 1, 0}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 1.0, 0.0}, 0xFFFFCC00),
+                new Face3D(new int[]{4, 5, 1}, new double[]{0.0, 0.0, 1.0}, new double[]{0.0, 1.0, 1.0}, 0xFFFFCC00),
                 // Derecha (x = 0.8)
-                new Face3D(new int[]{1, 6, 5}, 0xFFAF52DE),
-                new Face3D(new int[]{1, 2, 6}, 0xFFAF52DE),
+                new Face3D(new int[]{1, 6, 5}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 1.0, 0.0}, 0xFFAF52DE),
+                new Face3D(new int[]{1, 2, 6}, new double[]{0.0, 0.0, 1.0}, new double[]{0.0, 1.0, 1.0}, 0xFFAF52DE),
                 // Izquierda (x = -0.8)
-                new Face3D(new int[]{4, 3, 0}, 0xFF5AC8FA),
-                new Face3D(new int[]{4, 7, 3}, 0xFF5AC8FA)
+                new Face3D(new int[]{4, 3, 0}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 1.0, 0.0}, 0xFF5AC8FA),
+                new Face3D(new int[]{4, 7, 3}, new double[]{0.0, 0.0, 1.0}, new double[]{0.0, 1.0, 1.0}, 0xFF5AC8FA)
         };
 
         // --- PIRÁMIDE ---
@@ -140,13 +152,13 @@ public class RasterizerFrame extends JPanel {
 
         pyramidFaces = new Face3D[]{
                 // Caras laterales
-                new Face3D(new int[]{0, 2, 1}, 0xFFFF2D55),
-                new Face3D(new int[]{0, 3, 2}, 0xFF5AC8FA),
-                new Face3D(new int[]{0, 4, 3}, 0xFFFFCC00),
-                new Face3D(new int[]{0, 1, 4}, 0xFFAF52DE),
+                new Face3D(new int[]{0, 2, 1}, new double[]{0.5, 1.0, 0.0}, new double[]{1.0, 0.0, 0.0}, 0xFFFF2D55),
+                new Face3D(new int[]{0, 3, 2}, new double[]{0.5, 1.0, 0.0}, new double[]{1.0, 0.0, 0.0}, 0xFF5AC8FA),
+                new Face3D(new int[]{0, 4, 3}, new double[]{0.5, 1.0, 0.0}, new double[]{1.0, 0.0, 0.0}, 0xFFFFCC00),
+                new Face3D(new int[]{0, 1, 4}, new double[]{0.5, 1.0, 0.0}, new double[]{1.0, 0.0, 0.0}, 0xFFAF52DE),
                 // Base (2 triángulos)
-                new Face3D(new int[]{1, 2, 3}, 0xFF8E8E93),
-                new Face3D(new int[]{1, 3, 4}, 0xFF8E8E93)
+                new Face3D(new int[]{1, 2, 3}, new double[]{0.0, 1.0, 1.0}, new double[]{0.0, 0.0, 1.0}, 0xFF8E8E93),
+                new Face3D(new int[]{1, 3, 4}, new double[]{0.0, 1.0, 0.0}, new double[]{0.0, 1.0, 1.0}, 0xFF8E8E93)
         };
 
         // --- ESFERA (UV Sphere) ---
@@ -187,9 +199,26 @@ public class RasterizerFrame extends JPanel {
                 int first = r * (sectors + 1) + s;
                 int second = first + sectors + 1;
 
-                // Crear dos triángulos por celda
-                faces.add(new Face3D(new int[]{first, second, first + 1}, 0xFF5AC8FA));
-                faces.add(new Face3D(new int[]{second, second + 1, first + 1}, 0xFF5AC8FA));
+                double u0 = (double) s / sectors;
+                double u1 = (double) (s + 1) / sectors;
+                double v0 = (double) r / rings;
+                double v1 = (double) (r + 1) / rings;
+
+                // Triángulo 1: first, second, first + 1
+                faces.add(new Face3D(
+                        new int[]{first, second, first + 1},
+                        new double[]{u0, u0, u1},
+                        new double[]{v0, v1, v0},
+                        0xFF5AC8FA
+                ));
+
+                // Triángulo 2: second, second + 1, first + 1
+                faces.add(new Face3D(
+                        new int[]{second, second + 1, first + 1},
+                        new double[]{u0, u1, u1},
+                        new double[]{v1, v1, v0},
+                        0xFF5AC8FA
+                ));
             }
         }
 
@@ -272,6 +301,36 @@ public class RasterizerFrame extends JPanel {
             activeLineAlgo = LineAlgo.values()[idx];
         });
         sidebarContent.add(crearFilaControl("Algoritmo Líneas:", comboLineaAlgo));
+
+        // --- SECCIÓN: TEXTURAS Y PERSPECTIVA ---
+        sidebarContent.add(crearEncabezado("TEXTURAS Y PERSPECTIVA", true));
+
+        comboTexturas = new JComboBox<>(new String[]{
+                "Ninguna",
+                "Tablero de Ajedrez",
+                "Cuadrícula UV",
+                "Imagen del Editor",
+                "Cargar Archivo..."
+        });
+        comboTexturas.addActionListener(e -> {
+            int idx = comboTexturas.getSelectedIndex();
+            if (idx == 4) {
+                cargarTexturaDesdeArchivo();
+            }
+        });
+        sidebarContent.add(crearFilaControl("Textura 3D:", comboTexturas));
+
+        comboBufferAlgo = new JComboBox<>(new String[]{
+                "Z-Buffer (Lineal 2D)",
+                "W-Buffer (Perspectiva 3D)"
+        });
+        comboBufferAlgo.setSelectedIndex(1); // W-Buffer por defecto
+        rasterizer.setWBufferEnabled(true);
+        comboBufferAlgo.addActionListener(e -> {
+            int idx = comboBufferAlgo.getSelectedIndex();
+            rasterizer.setWBufferEnabled(idx == 1);
+        });
+        sidebarContent.add(crearFilaControl("Corrección Z/W:", comboBufferAlgo));
 
         // --- SECCIÓN 3: ROTACIÓN Y CÁMARA ---
         sidebarContent.add(crearEncabezado("CÁMARA Y PERSPECTIVA", true));
@@ -429,8 +488,19 @@ public class RasterizerFrame extends JPanel {
             int x3 = task.screenX[2], y3 = task.screenY[2];
             double z1 = task.projZ[0], z2 = task.projZ[1], z3 = task.projZ[2];
 
-            if (activeRenderMode == RenderMode.SOLID_SHADED) {
-                rasterizer.drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, task.c1, task.c2, task.c3);
+            if (activeRenderMode == RenderMode.SOLID_SHADED || activeRenderMode == RenderMode.Z_BUFFER_MAP) {
+                BufferedImage activeTexture = getActiveTextureImage();
+                if (activeTexture != null) {
+                    rasterizer.drawTriangleTextured(
+                            x1, y1, z1, z1, task.face.uCoords[0], task.face.vCoords[0],
+                            x2, y2, z2, z2, task.face.uCoords[1], task.face.vCoords[1],
+                            x3, y3, z3, z3, task.face.uCoords[2], task.face.vCoords[2],
+                            activeTexture,
+                            task.c1, task.c2, task.c3
+                    );
+                } else {
+                    rasterizer.drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, task.c1, task.c2, task.c3);
+                }
             } else if (activeRenderMode == RenderMode.WIREFRAME) {
                 if (activeLineAlgo == LineAlgo.BRESENHAM) {
                     rasterizer.drawLineBresenham(x1, y1, z1, x2, y2, z2, meshLineColor);
@@ -445,9 +515,6 @@ public class RasterizerFrame extends JPanel {
                 rasterizer.drawPoint(x1, y1, z1, meshLineColor);
                 rasterizer.drawPoint(x2, y2, z2, meshLineColor);
                 rasterizer.drawPoint(x3, y3, z3, meshLineColor);
-            } else if (activeRenderMode == RenderMode.Z_BUFFER_MAP) {
-                // Primero rellenamos las figuras para actualizar el Z-buffer
-                rasterizer.drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, task.c1, task.c2, task.c3);
             }
         }
 
@@ -600,7 +667,8 @@ public class RasterizerFrame extends JPanel {
                     new int[]{x1, x2, x3},
                     new int[]{y1, y2, y3},
                     new double[]{projZ[idx1], projZ[idx2], projZ[idx3]},
-                    c1, c2, c3
+                    c1, c2, c3,
+                    face
             );
             drawTasks.add(task);
         }
@@ -637,6 +705,83 @@ public class RasterizerFrame extends JPanel {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
+    private void initTextures() {
+        textureCheckerboard = generateCheckerboardTexture();
+        textureUVGrid = generateUVGridTexture();
+    }
+
+    private BufferedImage getActiveTextureImage() {
+        if (comboTexturas == null) return null;
+        int index = comboTexturas.getSelectedIndex();
+        switch (index) {
+            case 1 -> { return textureCheckerboard; }
+            case 2 -> { return textureUVGrid; }
+            case 3 -> {
+                BufferedImage parentImg = parentFrame.getCurrentImage();
+                return parentImg != null ? parentImg : textureCheckerboard;
+            }
+            case 4 -> { return customTexture != null ? customTexture : textureCheckerboard; }
+            default -> { return null; }
+        }
+    }
+
+    private void cargarTexturaDesdeArchivo() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Cargar Textura 3D");
+        chooser.setFileFilter(new FileNameExtensionFilter("Imágenes (PNG, JPG, JPEG, BMP)", "png", "jpg", "jpeg", "bmp"));
+        int res = chooser.showOpenDialog(this);
+        if (res == JFileChooser.APPROVE_OPTION) {
+            try {
+                File file = chooser.getSelectedFile();
+                BufferedImage loaded = ImageIO.read(file);
+                if (loaded != null) {
+                    customTexture = loaded;
+                } else {
+                    JOptionPane.showMessageDialog(this, "No se pudo leer la imagen.", "Error", JOptionPane.ERROR_MESSAGE);
+                    comboTexturas.setSelectedIndex(0);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al cargar la textura: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                comboTexturas.setSelectedIndex(0);
+            }
+        } else {
+            if (customTexture == null) {
+                comboTexturas.setSelectedIndex(0);
+            }
+        }
+    }
+
+    private BufferedImage generateCheckerboardTexture() {
+        int size = 256;
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = ((java.awt.image.DataBufferInt) img.getRaster().getDataBuffer()).getData();
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                boolean white = ((x / 32) + (y / 32)) % 2 == 0;
+                pixels[y * size + x] = white ? 0xFFFFFFFF : 0xFF6366F1; // Blanco vs Índigo
+            }
+        }
+        return img;
+    }
+
+    private BufferedImage generateUVGridTexture() {
+        int size = 256;
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = ((java.awt.image.DataBufferInt) img.getRaster().getDataBuffer()).getData();
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                int r = (x * 255) / size;
+                int g = (y * 255) / size;
+                int b = 128;
+                if (x % 32 == 0 || y % 32 == 0) {
+                    r = 255; g = 255; b = 255;
+                }
+                pixels[y * size + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+        return img;
+    }
+
     // --- CLASES AUXILIARES INTERNAS DE MODELADO ---
 
     private static class Vertex3D {
@@ -653,10 +798,22 @@ public class RasterizerFrame extends JPanel {
 
     private static class Face3D {
         int[] vIndices;
+        double[] uCoords;
+        double[] vCoords;
         int color;
 
         Face3D(int[] vIndices, int color) {
             this.vIndices = vIndices;
+            this.color = color;
+            // UVs por defecto
+            this.uCoords = new double[]{0.0, 1.0, 0.5};
+            this.vCoords = new double[]{0.0, 0.0, 1.0};
+        }
+
+        Face3D(int[] vIndices, double[] uCoords, double[] vCoords, int color) {
+            this.vIndices = vIndices;
+            this.uCoords = uCoords;
+            this.vCoords = vCoords;
             this.color = color;
         }
     }
@@ -666,14 +823,16 @@ public class RasterizerFrame extends JPanel {
         int[] screenY;
         double[] projZ;
         int c1, c2, c3;
+        Face3D face;
 
-        DrawTask(int[] screenX, int[] screenY, double[] projZ, int c1, int c2, int c3) {
+        DrawTask(int[] screenX, int[] screenY, double[] projZ, int c1, int c2, int c3, Face3D face) {
             this.screenX = screenX;
             this.screenY = screenY;
             this.projZ = projZ;
             this.c1 = c1;
             this.c2 = c2;
             this.c3 = c3;
+            this.face = face;
         }
     }
 

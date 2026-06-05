@@ -1112,4 +1112,8 @@ public class MainFrame extends JFrame {
         if (ventanaMatrices != null) ventanaMatrices.setVisible(false);
         if (ventanaHistograma != null) ventanaHistograma.setVisible(false);
     }
+
+    public BufferedImage getCurrentImage() {
+        return filteredImage != null ? filteredImage : originalImage;
+    }
 }
