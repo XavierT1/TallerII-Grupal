@@ -145,6 +145,19 @@ public class ModernIcon implements Icon {
                 g2d.draw(new Ellipse2D.Double(left + w * 0.35, top + h * 0.25, w * 0.65, h * 0.65));
                 break;
 
+            case "render3d": // Icono de Pirámide o Cubo 3D
+                Path2D pyr = new Path2D.Double();
+                pyr.moveTo(left + w * 0.5, top); // Cúspide
+                pyr.lineTo(left, top + h * 0.85); // Base izquierda
+                pyr.lineTo(left + w * 0.7, top + h); // Base centro
+                pyr.closePath();
+                g2d.draw(pyr);
+
+                g2d.draw(new Line2D.Double(left + w * 0.5, top, left + w * 0.7, top + h)); // Arista central
+                g2d.draw(new Line2D.Double(left + w * 0.7, top + h, left + w, top + h * 0.75)); // Base derecha trasera
+                g2d.draw(new Line2D.Double(left + w * 0.5, top, left + w, top + h * 0.75)); // Arista derecha trasera
+                break;
+
             case "deshacer": // Deshacer (Flecha curva izquierda)
                 Path2D arrow = new Path2D.Double();
                 arrow.moveTo(left + w * 0.8, top + h * 0.8);
